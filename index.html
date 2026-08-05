@@ -3,13 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TTE UK Leadership Analyser · Kraken</title>
+  <title>Leadership Analyser · Kraken</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0a0a1a; color: #fff; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background: #29172E; color: #fff; font-family: 'Montserrat', 'Segoe UI', system-ui, sans-serif; }
     input[type=color] { -webkit-appearance: none; appearance: none; border: none; cursor: pointer; }
     input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
     input[type=color]::-webkit-color-swatch { border: none; border-radius: 6px; }
@@ -18,36 +21,1197 @@
       border-radius: 6px; padding: 7px 10px; font-size: 13px; outline: none;
       font-family: inherit;
     }
-    input[type=text]:focus, input[type=month]:focus, select:focus { border-color: #b026ff; }
-    select option { background: #12123a; }
+    input[type=text]:focus, input[type=month]:focus, select:focus { border-color: #DE1C80; }
+    select option { background: #29172E; }
+    * { font-family: 'Montserrat', 'Segoe UI', system-ui, sans-serif; }
   </style>
 </head>
 <body>
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useCallback, useContext, createContext, useRef } = React;
+    const { useState, useCallback, useContext, createContext } = React;
 
     // ─── Theme ───────────────────────────────────────────────────────────────
 
     const DEFAULT_THEME = {
-      primary:     "#b026ff",
-      primaryDark: "#8000cc",
-      secondary:   "#ff4d6d",
-      strong:      "#00d084",
-      developing:  "#f59e0b",
-      bgMain:      "#0a0a1a",
-      bgCard:      "#12123a",
-      bgDeep:      "#0f0f2a",
-      bgTrack:     "#1a1a3e",
-      bgHover:     "#1a1a4e",
-      border:      "#2a2a5a",
-      textMuted:   "#888888",
-      textSub:     "#aaaaaa",
+      // Accent / brand
+      primary:     "#DE1C80",  // Kraken Power Pink — buttons, active tabs, highlights
+      primaryDark: "#C82C84",  // Darker pink — button hover, gradients
+      // Score colours
+      secondary:   "#ff4d6d",  // Emerging (1-3)
+      strong:      "#00d084",  // Strong (7-10)
+      developing:  "#f59e0b",  // Developing (4-6)
+      // Backgrounds
+      bgMain:      "#29172E",  // Page background
+      bgCard:      "#4A2E4F",  // Card / panel background
+      bgDeep:      "#1e1126",  // Deeply recessed areas (upload zones, tab bars)
+      bgTrack:     "#3a1f40",  // Score bar track
+      bgHover:     "#5a3860",  // Hover state
+      // Borders
+      border:      "#6b3f72",  // Default border
+      // Text
+      textBody:    "#ffffff",  // Primary body text
+      textMuted:   "#c4a8cb",  // De-emphasised labels
+      textSub:     "#e0c8e5",  // Secondary text
+      // Buttons
+      btnText:     "#ffffff",  // Text on primary buttons
+      btnSecBg:    "#4A2E4F",  // Secondary button background
+      btnSecText:  "#e0c8e5",  // Secondary button text
+      // Nav
+      navBg:       "#4A2E4F",  // Top-level tab bar background
+    };
+
+    const LIGHT_THEME = {
+      primary:     "#DE1C80",
+      primaryDark: "#C82C84",
+      secondary:   "#e53e3e",
+      strong:      "#276749",
+      developing:  "#d97706",
+      bgMain:      "#F5ECE2",
+      bgCard:      "#ffffff",
+      bgDeep:      "#EDD7CC",
+      bgTrack:     "#e2d0c8",
+      bgHover:     "#f0e4dc",
+      border:      "#d0b8ac",
+      textBody:    "#29172E",
+      textMuted:   "#7a5c6e",
+      textSub:     "#5a3c4e",
+      btnText:     "#ffffff",
+      btnSecBg:    "#EDD7CC",
+      btnSecText:  "#29172E",
+      navBg:       "#EDD7CC",
     };
 
     const ThemeContext = createContext(DEFAULT_THEME);
     const useTheme = () => useContext(ThemeContext);
+
+    // ─── Translations ─────────────────────────────────────────────────────────
+
+    const LANGUAGES = [
+      { code:"ar", label:"Arabic" },
+      { code:"nl", label:"Dutch" },
+      { code:"en", label:"English" },
+      { code:"fi", label:"Finnish" },
+      { code:"fr", label:"French" },
+      { code:"de", label:"German" },
+      { code:"el", label:"Greek" },
+      { code:"it", label:"Italian" },
+      { code:"ja", label:"Japanese" },
+      { code:"no", label:"Norwegian" },
+      { code:"es", label:"Spanish" },
+      { code:"sv", label:"Swedish" },
+    ];
+
+    const T = {
+      en: {
+        appTitle: "Leadership Analyser",
+        appSubtitle: "Kraken · Session Response Summary Tool",
+        branding: "Branding",
+        thisPage: "⬇ This page",
+        fullReport: "⬇ Full report",
+        singleCsv: "Single CSV",
+        multipleCohorts: "Multiple Cohorts",
+        programmeSetup: "Programme Setup",
+        uploadCsv: "Upload your CSV export",
+        uploadCsvSub: "Export from Google Forms, Typeform, or any questionnaire tool and drop it here",
+        chooseCsvFile: "Choose CSV file",
+        totalResponses: "Total responses",
+        sessionsCovered: "Sessions covered",
+        file: "File",
+        uploadNewCsv: "Upload new CSV",
+        clientName: "Client name",
+        addClientName: "⚠ Add client name",
+        scoresbyArea: "Scores by Area",
+        leadershipPrinciples: "Leadership Principles",
+        bySession: "By Session",
+        filterByDay: "Filter by day:",
+        allDays: "All days",
+        oxfordSix: "Oxford's 6 Transformation Skills",
+        krakensModel: "Kraken's Transformation Model",
+        scoresDesc6: "Scores mapped to Oxford's 6 transformation skills framework. Each session contributes to all areas it maps to.",
+        scoresDescWheel: "Scores mapped to Kraken's Transformation Model. Inner ring represents core competencies.",
+        currentPosition: "Current position",
+        improvementEase: "Improvement ease",
+        overallGroupScore: "Overall group score",
+        outOf10: "out of 10",
+        noResponses: "No responses mapped to this area",
+        q1Label: "How is",
+        q1LabelEnd: "currently conducting this?",
+        q2Label: "What needs to happen to improve this?",
+        topThemes: "Top Themes",
+        topThemesSub: "The 6 most common leadership principles emerging from responses",
+        noThemes: "Not enough variety to cluster — see all responses below.",
+        mostPowerful: "✦ Most Powerful Principles",
+        mostPowerfulDesc: "These principles have been personally selected by a member of the Kraken team as the most impactful responses from this session.",
+        mostPowerfulHint: "To update the selection, open \"All Leadership Principles\" below and use the ☆ stars.",
+        noStarred: "No principles selected yet. Open \"All Leadership Principles\" below and star the ones that stand out.",
+        allPrinciples: "All Leadership Principles",
+        showAll: "▼ Show all",
+        hide: "▲ Hide",
+        clickToAdd: "Click ☆ on any response to add it to Most Powerful Principles",
+        responsesBySession: "Responses by Session",
+        q1avg: "Q1 avg",
+        q2avg: "Q2 avg",
+        strong: "Strong (7–10)",
+        developing: "Developing (4–6)",
+        emerging: "Emerging (1–3)",
+        noData: "No data",
+        enterPassword: "Enter password",
+        incorrectPassword: "Incorrect password. Please try again.",
+        enter: "Enter",
+        replaceDeck: "🔄 Replace deck",
+        choosePptx: "Choose .pptx file",
+        uploadDeck: "Upload your programme deck",
+        uploadDeckSub: "Drop a .pptx file — sessions will be detected and mapped to days automatically",
+        sessionDayMapping: "Session to Day Mapping",
+        addDay: "+ Add day",
+        dragSessionsInfo: "Drag sessions between day columns to assign them. Unassigned sessions appear below.",
+        unassigned: "Unassigned sessions — drag to a day column above",
+        dropHere: "Drop sessions here",
+        noResponsesDay: "No responses yet for this day's sessions.",
+        resetBranding: "Reset to Kraken brand defaults",
+        manualPickers: "Manual colour pickers",
+        primaryAccent: "Primary accent",
+        strongScore: "Strong score (7–10)",
+        developingScore: "Developing score (4–6)",
+        emergingScore: "Emerging score (1–3)",
+        uploadPalette: "Upload a colour palette image",
+        replacePalette: "Upload a different palette",
+        chooseImage: "Choose image",
+        extractedColours: "Extracted colours — click to apply",
+        highlightColour: "Set highlight colour",
+        lookingInward: "Looking Inward",
+        waysOfWorking: "Ways of Working",
+        bringingToLife: "Bringing it to Life",
+        addCohort: "Add a cohort",
+        addCohortBtn: "Add cohort",
+        cohortClientName: "Client name *",
+        cohortName: "Cohort name *",
+        cohortMonth: "Month *",
+        cohortYear: "Year *",
+        uploadCsvCohort: "📂 Upload CSV",
+        compareAll: "⇄ Compare all",
+        comparing: "Comparing all cohorts",
+        responses: "responses",
+        language: "Language",
+      },
+      fr: {
+        appTitle: "Analyseur de leadership",
+        appSubtitle: "Kraken · Outil de résumé des réponses de session",
+        branding: "Image de marque",
+        thisPage: "⬇ Cette page",
+        fullReport: "⬇ Rapport complet",
+        singleCsv: "CSV unique",
+        multipleCohorts: "Cohortes multiples",
+        programmeSetup: "Configuration du programme",
+        uploadCsv: "Télécharger votre export CSV",
+        uploadCsvSub: "Exportez depuis Google Forms, Typeform ou tout autre outil de questionnaire",
+        chooseCsvFile: "Choisir un fichier CSV",
+        totalResponses: "Total des réponses",
+        sessionsCovered: "Sessions couvertes",
+        file: "Fichier",
+        uploadNewCsv: "Nouveau CSV",
+        clientName: "Nom du client",
+        addClientName: "⚠ Ajouter le nom du client",
+        scoresbyArea: "Scores par domaine",
+        leadershipPrinciples: "Principes de leadership",
+        bySession: "Par session",
+        filterByDay: "Filtrer par jour :",
+        allDays: "Tous les jours",
+        oxfordSix: "Les 6 compétences de transformation d'Oxford",
+        krakensModel: "Modèle de transformation Kraken",
+        scoresDesc6: "Scores mappés au cadre des 6 compétences de transformation d'Oxford.",
+        scoresDescWheel: "Scores mappés au modèle de transformation Kraken.",
+        currentPosition: "Position actuelle",
+        improvementEase: "Facilité d'amélioration",
+        overallGroupScore: "Score global du groupe",
+        outOf10: "sur 10",
+        noResponses: "Aucune réponse mappée à ce domaine",
+        q1Label: "Comment",
+        q1LabelEnd: "se comporte-t-il actuellement dans ce domaine ?",
+        q2Label: "Que faut-il faire pour améliorer cela ?",
+        topThemes: "Thèmes principaux",
+        topThemesSub: "Les 6 principes de leadership les plus fréquents",
+        noThemes: "Pas assez de variété pour regrouper — voir toutes les réponses ci-dessous.",
+        mostPowerful: "✦ Principes les plus puissants",
+        mostPowerfulDesc: "Ces principes ont été personnellement sélectionnés par un membre de l'équipe Kraken.",
+        mostPowerfulHint: "Pour mettre à jour la sélection, ouvrez \"Tous les principes\" ci-dessous et utilisez les étoiles ☆.",
+        noStarred: "Aucun principe sélectionné. Ouvrez \"Tous les principes\" et marquez ceux qui se démarquent.",
+        allPrinciples: "Tous les principes de leadership",
+        showAll: "▼ Tout afficher",
+        hide: "▲ Masquer",
+        clickToAdd: "Cliquez sur ☆ pour ajouter à la sélection",
+        responsesBySession: "Réponses par session",
+        q1avg: "Moy. Q1",
+        q2avg: "Moy. Q2",
+        strong: "Fort (7–10)",
+        developing: "En développement (4–6)",
+        emerging: "Émergent (1–3)",
+        noData: "Pas de données",
+        enterPassword: "Entrez le mot de passe",
+        incorrectPassword: "Mot de passe incorrect. Veuillez réessayer.",
+        enter: "Entrer",
+        replaceDeck: "🔄 Remplacer le deck",
+        choosePptx: "Choisir un fichier .pptx",
+        uploadDeck: "Télécharger votre deck de programme",
+        uploadDeckSub: "Déposez un fichier .pptx — les sessions seront détectées automatiquement",
+        sessionDayMapping: "Mapping sessions / jours",
+        addDay: "+ Ajouter un jour",
+        dragSessionsInfo: "Faites glisser les sessions entre les colonnes.",
+        unassigned: "Sessions non assignées — faites glisser vers une colonne",
+        dropHere: "Déposez les sessions ici",
+        noResponsesDay: "Aucune réponse pour les sessions de ce jour.",
+        resetBranding: "Réinitialiser aux couleurs Kraken",
+        manualPickers: "Sélecteurs de couleurs manuels",
+        primaryAccent: "Accent principal",
+        strongScore: "Score fort (7–10)",
+        developingScore: "Score en développement (4–6)",
+        emergingScore: "Score émergent (1–3)",
+        uploadPalette: "Télécharger une palette de couleurs",
+        replacePalette: "Télécharger une autre palette",
+        chooseImage: "Choisir une image",
+        extractedColours: "Couleurs extraites — cliquez pour appliquer",
+        highlightColour: "Définir la couleur de surbrillance",
+        lookingInward: "Regard intérieur",
+        waysOfWorking: "Modes de travail",
+        bringingToLife: "Mise en pratique",
+        addCohort: "+ Ajouter une cohorte",
+        addCohortBtn: "Ajouter",
+        cohortClientName: "Nom du client *",
+        cohortName: "Nom de la cohorte *",
+        cohortMonth: "Mois *",
+        cohortYear: "Année *",
+        uploadCsvCohort: "📂 Télécharger CSV",
+        compareAll: "⇄ Comparer tout",
+        comparing: "Comparaison de toutes les cohortes",
+        responses: "réponses",
+        language: "Langue",
+      },
+      es: {
+        appTitle: "Analizador de liderazgo",
+        appSubtitle: "Kraken · Herramienta de resumen de sesiones",
+        branding: "Marca",
+        thisPage: "⬇ Esta página",
+        fullReport: "⬇ Informe completo",
+        singleCsv: "CSV único",
+        multipleCohorts: "Múltiples cohortes",
+        programmeSetup: "Configuración del programa",
+        uploadCsv: "Subir su exportación CSV",
+        uploadCsvSub: "Exporte desde Google Forms, Typeform o cualquier herramienta de cuestionarios",
+        chooseCsvFile: "Elegir archivo CSV",
+        totalResponses: "Total de respuestas",
+        sessionsCovered: "Sesiones cubiertas",
+        file: "Archivo",
+        uploadNewCsv: "Subir nuevo CSV",
+        clientName: "Nombre del cliente",
+        addClientName: "⚠ Agregar nombre del cliente",
+        scoresbyArea: "Puntuaciones por área",
+        leadershipPrinciples: "Principios de liderazgo",
+        bySession: "Por sesión",
+        filterByDay: "Filtrar por día:",
+        allDays: "Todos los días",
+        oxfordSix: "Las 6 habilidades de transformación de Oxford",
+        krakensModel: "Modelo de transformación de Kraken",
+        scoresDesc6: "Puntuaciones mapeadas al marco de 6 habilidades de transformación de Oxford.",
+        scoresDescWheel: "Puntuaciones mapeadas al modelo de transformación de Kraken.",
+        currentPosition: "Posición actual",
+        improvementEase: "Facilidad de mejora",
+        overallGroupScore: "Puntuación general del grupo",
+        outOf10: "de 10",
+        noResponses: "No hay respuestas mapeadas a esta área",
+        q1Label: "¿Cómo está",
+        q1LabelEnd: "llevando esto a cabo actualmente?",
+        q2Label: "¿Qué se necesita para mejorar esto?",
+        topThemes: "Temas principales",
+        topThemesSub: "Los 6 principios de liderazgo más comunes",
+        noThemes: "No hay suficiente variedad para agrupar.",
+        mostPowerful: "✦ Principios más poderosos",
+        mostPowerfulDesc: "Estos principios fueron seleccionados personalmente por un miembro del equipo de Kraken.",
+        mostPowerfulHint: "Para actualizar la selección, abra \"Todos los principios\" y use las estrellas ☆.",
+        noStarred: "Ningún principio seleccionado aún.",
+        allPrinciples: "Todos los principios de liderazgo",
+        showAll: "▼ Mostrar todo",
+        hide: "▲ Ocultar",
+        clickToAdd: "Haz clic en ☆ para añadir a los más poderosos",
+        responsesBySession: "Respuestas por sesión",
+        q1avg: "Prom. Q1",
+        q2avg: "Prom. Q2",
+        strong: "Fuerte (7–10)",
+        developing: "En desarrollo (4–6)",
+        emerging: "Emergente (1–3)",
+        noData: "Sin datos",
+        enterPassword: "Introducir contraseña",
+        incorrectPassword: "Contraseña incorrecta. Por favor, inténtelo de nuevo.",
+        enter: "Entrar",
+        replaceDeck: "🔄 Reemplazar deck",
+        choosePptx: "Elegir archivo .pptx",
+        uploadDeck: "Subir su deck de programa",
+        uploadDeckSub: "Suelte un archivo .pptx — las sesiones se detectarán automáticamente",
+        sessionDayMapping: "Mapeo de sesiones por día",
+        addDay: "+ Agregar día",
+        dragSessionsInfo: "Arrastre sesiones entre columnas.",
+        unassigned: "Sesiones sin asignar — arrastre a una columna",
+        dropHere: "Suelte sesiones aquí",
+        noResponsesDay: "Sin respuestas para las sesiones de este día.",
+        resetBranding: "Restablecer colores Kraken",
+        manualPickers: "Selectores de color manuales",
+        primaryAccent: "Acento principal",
+        strongScore: "Puntuación fuerte (7–10)",
+        developingScore: "Puntuación en desarrollo (4–6)",
+        emergingScore: "Puntuación emergente (1–3)",
+        uploadPalette: "Subir paleta de colores",
+        replacePalette: "Subir otra paleta",
+        chooseImage: "Elegir imagen",
+        extractedColours: "Colores extraídos — haz clic para aplicar",
+        highlightColour: "Establecer color de resaltado",
+        lookingInward: "Mirada interior",
+        waysOfWorking: "Formas de trabajar",
+        bringingToLife: "Llevando a la práctica",
+        addCohort: "+ Agregar cohorte",
+        addCohortBtn: "Agregar",
+        cohortClientName: "Nombre del cliente *",
+        cohortName: "Nombre de la cohorte *",
+        cohortMonth: "Mes *",
+        cohortYear: "Año *",
+        uploadCsvCohort: "📂 Subir CSV",
+        compareAll: "⇄ Comparar todo",
+        comparing: "Comparando todas las cohortes",
+        responses: "respuestas",
+        language: "Idioma",
+      },
+      de: {
+        appTitle: "Führungsanalysator",
+        appSubtitle: "Kraken · Sitzungsantwort-Zusammenfassungstool",
+        branding: "Markendesign",
+        thisPage: "⬇ Diese Seite",
+        fullReport: "⬇ Vollständiger Bericht",
+        singleCsv: "Einzelne CSV",
+        multipleCohorts: "Mehrere Kohorten",
+        programmeSetup: "Programmeinrichtung",
+        uploadCsv: "CSV-Export hochladen",
+        uploadCsvSub: "Exportieren Sie aus Google Forms, Typeform oder einem anderen Umfragetool",
+        chooseCsvFile: "CSV-Datei auswählen",
+        totalResponses: "Gesamtantworten",
+        sessionsCovered: "Abgedeckte Sitzungen",
+        file: "Datei",
+        uploadNewCsv: "Neue CSV hochladen",
+        clientName: "Kundenname",
+        addClientName: "⚠ Kundennamen hinzufügen",
+        scoresbyArea: "Punkte nach Bereich",
+        leadershipPrinciples: "Führungsprinzipien",
+        bySession: "Nach Sitzung",
+        filterByDay: "Nach Tag filtern:",
+        allDays: "Alle Tage",
+        oxfordSix: "Oxfords 6 Transformationsfähigkeiten",
+        krakensModel: "Krakens Transformationsmodell",
+        scoresDesc6: "Punkte dem Oxford 6-Transformationsfähigkeiten-Rahmen zugeordnet.",
+        scoresDescWheel: "Punkte dem Kraken-Transformationsmodell zugeordnet.",
+        currentPosition: "Aktuelle Position",
+        improvementEase: "Verbesserungsleichtigkeit",
+        overallGroupScore: "Gesamtpunktzahl der Gruppe",
+        outOf10: "von 10",
+        noResponses: "Keine Antworten diesem Bereich zugeordnet",
+        q1Label: "Wie führt",
+        q1LabelEnd: "dies derzeit durch?",
+        q2Label: "Was muss geschehen, um dies zu verbessern?",
+        topThemes: "Hauptthemen",
+        topThemesSub: "Die 6 häufigsten Führungsprinzipien",
+        noThemes: "Nicht genug Vielfalt zum Gruppieren.",
+        mostPowerful: "✦ Stärkste Prinzipien",
+        mostPowerfulDesc: "Diese Prinzipien wurden persönlich von einem Kraken-Teammitglied ausgewählt.",
+        mostPowerfulHint: "Um die Auswahl zu aktualisieren, oeffnen Sie Alle Prinzipien und nutzen Sie die Sterne.",
+        noStarred: "Noch keine Prinzipien ausgewählt.",
+        allPrinciples: "Alle Führungsprinzipien",
+        showAll: "▼ Alle anzeigen",
+        hide: "▲ Ausblenden",
+        clickToAdd: "Klicken Sie auf ☆, um zu den stärksten Prinzipien hinzuzufügen",
+        responsesBySession: "Antworten nach Sitzung",
+        q1avg: "Ø Q1",
+        q2avg: "Ø Q2",
+        strong: "Stark (7–10)",
+        developing: "In Entwicklung (4–6)",
+        emerging: "Aufkommend (1–3)",
+        noData: "Keine Daten",
+        enterPassword: "Passwort eingeben",
+        incorrectPassword: "Falsches Passwort. Bitte versuchen Sie es erneut.",
+        enter: "Eingeben",
+        replaceDeck: "🔄 Deck ersetzen",
+        choosePptx: ".pptx-Datei auswählen",
+        uploadDeck: "Programm-Deck hochladen",
+        uploadDeckSub: "Eine .pptx-Datei ablegen — Sitzungen werden automatisch erkannt",
+        sessionDayMapping: "Sitzungs-Tages-Zuordnung",
+        addDay: "+ Tag hinzufügen",
+        dragSessionsInfo: "Sitzungen zwischen Spalten ziehen.",
+        unassigned: "Nicht zugeordnete Sitzungen — in eine Spalte ziehen",
+        dropHere: "Sitzungen hier ablegen",
+        noResponsesDay: "Keine Antworten für die Sitzungen dieses Tages.",
+        resetBranding: "Kraken-Markenfarben zurücksetzen",
+        manualPickers: "Manuelle Farbauswahl",
+        primaryAccent: "Primärfarbe",
+        strongScore: "Starke Punktzahl (7–10)",
+        developingScore: "Entwicklungspunktzahl (4–6)",
+        emergingScore: "Aufkommende Punktzahl (1–3)",
+        uploadPalette: "Farbpalette hochladen",
+        replacePalette: "Andere Palette hochladen",
+        chooseImage: "Bild auswählen",
+        extractedColours: "Extrahierte Farben — zum Anwenden klicken",
+        highlightColour: "Hervorhebungsfarbe festlegen",
+        lookingInward: "Innenschau",
+        waysOfWorking: "Arbeitsweisen",
+        bringingToLife: "Umsetzung in die Praxis",
+        addCohort: "+ Kohorte hinzufügen",
+        addCohortBtn: "Hinzufügen",
+        cohortClientName: "Kundenname *",
+        cohortName: "Kohortenname *",
+        cohortMonth: "Monat *",
+        cohortYear: "Jahr *",
+        uploadCsvCohort: "📂 CSV hochladen",
+        compareAll: "⇄ Alle vergleichen",
+        comparing: "Alle Kohorten vergleichen",
+        responses: "Antworten",
+        language: "Sprache",
+      },
+      it: {
+        appTitle: "Analizzatore di leadership",
+        appSubtitle: "Kraken · Strumento di riepilogo delle risposte di sessione",
+        branding: "Branding",
+        thisPage: "⬇ Questa pagina",
+        fullReport: "⬇ Report completo",
+        singleCsv: "CSV singolo",
+        multipleCohorts: "Coorti multiple",
+        programmeSetup: "Configurazione del programma",
+        uploadCsv: "Carica il tuo export CSV",
+        uploadCsvSub: "Esporta da Google Forms, Typeform o qualsiasi strumento di questionario",
+        chooseCsvFile: "Scegli file CSV",
+        totalResponses: "Totale risposte",
+        sessionsCovered: "Sessioni coperte",
+        file: "File",
+        uploadNewCsv: "Carica nuovo CSV",
+        clientName: "Nome cliente",
+        addClientName: "⚠ Aggiungi nome cliente",
+        scoresbyArea: "Punteggi per area",
+        leadershipPrinciples: "Principi di leadership",
+        bySession: "Per sessione",
+        filterByDay: "Filtra per giorno:",
+        allDays: "Tutti i giorni",
+        oxfordSix: "Le 6 competenze di trasformazione di Oxford",
+        krakensModel: "Modello di trasformazione Kraken",
+        scoresDesc6: "Punteggi mappati al framework delle 6 competenze di trasformazione di Oxford.",
+        scoresDescWheel: "Punteggi mappati al modello di trasformazione Kraken.",
+        currentPosition: "Posizione attuale",
+        improvementEase: "Facilità di miglioramento",
+        overallGroupScore: "Punteggio complessivo del gruppo",
+        outOf10: "su 10",
+        noResponses: "Nessuna risposta mappata a questa area",
+        q1Label: "Come sta gestendo",
+        q1LabelEnd: "questo attualmente?",
+        q2Label: "Cosa deve accadere per migliorare questo?",
+        topThemes: "Temi principali",
+        topThemesSub: "I 6 principi di leadership più comuni",
+        noThemes: "Non abbastanza varietà per raggruppare.",
+        mostPowerful: "✦ Principi più potenti",
+        mostPowerfulDesc: "Questi principi sono stati selezionati personalmente da un membro del team Kraken.",
+        mostPowerfulHint: "Per aggiornare la selezione, apri \"Tutti i principi\" e usa le stelle ☆.",
+        noStarred: "Nessun principio selezionato ancora.",
+        allPrinciples: "Tutti i principi di leadership",
+        showAll: "▼ Mostra tutto",
+        hide: "▲ Nascondi",
+        clickToAdd: "Clicca su ☆ per aggiungere ai più potenti",
+        responsesBySession: "Risposte per sessione",
+        q1avg: "Media Q1",
+        q2avg: "Media Q2",
+        strong: "Forte (7–10)",
+        developing: "In sviluppo (4–6)",
+        emerging: "Emergente (1–3)",
+        noData: "Nessun dato",
+        enterPassword: "Inserisci password",
+        incorrectPassword: "Password errata. Riprova.",
+        enter: "Entra",
+        replaceDeck: "🔄 Sostituisci deck",
+        choosePptx: "Scegli file .pptx",
+        uploadDeck: "Carica il tuo deck del programma",
+        uploadDeckSub: "Trascina un file .pptx — le sessioni verranno rilevate automaticamente",
+        sessionDayMapping: "Mappatura sessioni per giorno",
+        addDay: "+ Aggiungi giorno",
+        dragSessionsInfo: "Trascina le sessioni tra le colonne.",
+        unassigned: "Sessioni non assegnate — trascina in una colonna",
+        dropHere: "Trascina le sessioni qui",
+        noResponsesDay: "Nessuna risposta per le sessioni di questo giorno.",
+        resetBranding: "Ripristina colori Kraken",
+        manualPickers: "Selettori colore manuali",
+        primaryAccent: "Accento principale",
+        strongScore: "Punteggio forte (7–10)",
+        developingScore: "Punteggio in sviluppo (4–6)",
+        emergingScore: "Punteggio emergente (1–3)",
+        uploadPalette: "Carica palette colori",
+        replacePalette: "Carica un'altra palette",
+        chooseImage: "Scegli immagine",
+        extractedColours: "Colori estratti — clicca per applicare",
+        highlightColour: "Imposta colore evidenziazione",
+        lookingInward: "Sguardo interiore",
+        waysOfWorking: "Modi di lavorare",
+        bringingToLife: "Mettere in pratica",
+        addCohort: "+ Aggiungi coorte",
+        addCohortBtn: "Aggiungi",
+        cohortClientName: "Nome cliente *",
+        cohortName: "Nome coorte *",
+        cohortMonth: "Mese *",
+        cohortYear: "Anno *",
+        uploadCsvCohort: "📂 Carica CSV",
+        compareAll: "⇄ Confronta tutto",
+        comparing: "Confronto di tutte le coorti",
+        responses: "risposte",
+        language: "Lingua",
+      },
+      el: {
+        appTitle: "Αναλυτής ηγεσίας",
+        appSubtitle: "Kraken · Εργαλείο σύνοψης απαντήσεων συνεδρίας",
+        branding: "Εταιρική ταυτότητα",
+        thisPage: "⬇ Αυτή η σελίδα",
+        fullReport: "⬇ Πλήρης έκθεση",
+        singleCsv: "Μονό CSV",
+        multipleCohorts: "Πολλαπλές ομάδες",
+        programmeSetup: "Ρύθμιση προγράμματος",
+        uploadCsv: "Ανεβάστε το CSV σας",
+        uploadCsvSub: "Εξαγωγή από Google Forms, Typeform ή οποιοδήποτε εργαλείο ερωτηματολογίου",
+        chooseCsvFile: "Επιλογή αρχείου CSV",
+        totalResponses: "Σύνολο απαντήσεων",
+        sessionsCovered: "Συνεδρίες που καλύφθηκαν",
+        file: "Αρχείο",
+        uploadNewCsv: "Νέο CSV",
+        clientName: "Όνομα πελάτη",
+        addClientName: "⚠ Προσθήκη ονόματος πελάτη",
+        scoresbyArea: "Βαθμολογίες ανά τομέα",
+        leadershipPrinciples: "Αρχές ηγεσίας",
+        bySession: "Ανά συνεδρία",
+        filterByDay: "Φίλτρο ανά ημέρα:",
+        allDays: "Όλες οι ημέρες",
+        oxfordSix: "6 δεξιότητες μετασχηματισμού της Οξφόρδης",
+        krakensModel: "Μοντέλο μετασχηματισμού Kraken",
+        scoresDesc6: "Βαθμολογίες χαρτογραφημένες στο πλαίσιο 6 δεξιοτήτων της Οξφόρδης.",
+        scoresDescWheel: "Βαθμολογίες χαρτογραφημένες στο μοντέλο Kraken.",
+        currentPosition: "Τρέχουσα θέση",
+        improvementEase: "Ευκολία βελτίωσης",
+        overallGroupScore: "Συνολική βαθμολογία ομάδας",
+        outOf10: "από 10",
+        noResponses: "Δεν υπάρχουν απαντήσεις για αυτόν τον τομέα",
+        q1Label: "Πώς διαχειρίζεται",
+        q1LabelEnd: "αυτό αυτή τη στιγμή;",
+        q2Label: "Τι χρειάζεται να συμβεί για να βελτιωθεί αυτό;",
+        topThemes: "Κύρια θέματα",
+        topThemesSub: "Οι 6 πιο κοινές αρχές ηγεσίας",
+        noThemes: "Δεν υπάρχει αρκετή ποικιλία για ομαδοποίηση.",
+        mostPowerful: "✦ Ισχυρότερες αρχές",
+        mostPowerfulDesc: "Αυτές οι αρχές επιλέχθηκαν προσωπικά από μέλος της ομάδας Kraken.",
+        mostPowerfulHint: "Για ενημέρωση της επιλογής, ανοίξτε «Όλες οι αρχές» και χρησιμοποιήστε τα ☆.",
+        noStarred: "Δεν έχουν επιλεγεί αρχές ακόμα.",
+        allPrinciples: "Όλες οι αρχές ηγεσίας",
+        showAll: "▼ Εμφάνιση όλων",
+        hide: "▲ Απόκρυψη",
+        clickToAdd: "Κάντε κλικ στο ☆ για προσθήκη",
+        responsesBySession: "Απαντήσεις ανά συνεδρία",
+        q1avg: "Μέσος Q1",
+        q2avg: "Μέσος Q2",
+        strong: "Ισχυρό (7–10)",
+        developing: "Αναπτυσσόμενο (4–6)",
+        emerging: "Αναδυόμενο (1–3)",
+        noData: "Χωρίς δεδομένα",
+        enterPassword: "Εισαγωγή κωδικού",
+        incorrectPassword: "Λανθασμένος κωδικός. Δοκιμάστε ξανά.",
+        enter: "Είσοδος",
+        replaceDeck: "🔄 Αντικατάσταση deck",
+        choosePptx: "Επιλογή αρχείου .pptx",
+        uploadDeck: "Ανεβάστε το deck του προγράμματος",
+        uploadDeckSub: "Αποθέστε ένα αρχείο .pptx — οι συνεδρίες θα εντοπιστούν αυτόματα",
+        sessionDayMapping: "Αντιστοίχιση συνεδριών ανά ημέρα",
+        addDay: "+ Προσθήκη ημέρας",
+        dragSessionsInfo: "Σύρετε συνεδρίες μεταξύ στηλών.",
+        unassigned: "Μη ανατεθειμένες συνεδρίες",
+        dropHere: "Αποθέστε εδώ",
+        noResponsesDay: "Δεν υπάρχουν απαντήσεις για τις συνεδρίες αυτής της ημέρας.",
+        resetBranding: "Επαναφορά χρωμάτων Kraken",
+        manualPickers: "Χειροκίνητη επιλογή χρωμάτων",
+        primaryAccent: "Κύριο χρώμα",
+        strongScore: "Ισχυρή βαθμολογία (7–10)",
+        developingScore: "Αναπτυσσόμενη βαθμολογία (4–6)",
+        emergingScore: "Αναδυόμενη βαθμολογία (1–3)",
+        uploadPalette: "Ανεβάστε παλέτα χρωμάτων",
+        replacePalette: "Ανεβάστε άλλη παλέτα",
+        chooseImage: "Επιλογή εικόνας",
+        extractedColours: "Εξαγόμενα χρώματα — κλικ για εφαρμογή",
+        highlightColour: "Ορισμός χρώματος επισήμανσης",
+        lookingInward: "Εσωτερική ματιά",
+        waysOfWorking: "Τρόποι εργασίας",
+        bringingToLife: "Εφαρμογή στην πράξη",
+        addCohort: "+ Προσθήκη ομάδας",
+        addCohortBtn: "Προσθήκη",
+        cohortClientName: "Όνομα πελάτη *",
+        cohortName: "Όνομα ομάδας *",
+        cohortMonth: "Μήνας *",
+        cohortYear: "Έτος *",
+        uploadCsvCohort: "📂 Ανέβασμα CSV",
+        compareAll: "⇄ Σύγκριση όλων",
+        comparing: "Σύγκριση όλων των ομάδων",
+        responses: "απαντήσεις",
+        language: "Γλώσσα",
+      },
+      ja: {
+        appTitle: "リーダーシップ分析ツール",
+        appSubtitle: "Kraken · セッション回答サマリーツール",
+        branding: "ブランディング",
+        thisPage: "⬇ このページ",
+        fullReport: "⬇ 完全レポート",
+        singleCsv: "単一CSV",
+        multipleCohorts: "複数コホート",
+        programmeSetup: "プログラム設定",
+        uploadCsv: "CSVをアップロード",
+        uploadCsvSub: "Google Forms、Typeform、またはアンケートツールからエクスポートしてここにドロップ",
+        chooseCsvFile: "CSVファイルを選択",
+        totalResponses: "総回答数",
+        sessionsCovered: "対象セッション数",
+        file: "ファイル",
+        uploadNewCsv: "新しいCSVをアップロード",
+        clientName: "クライアント名",
+        addClientName: "⚠ クライアント名を追加",
+        scoresbyArea: "エリア別スコア",
+        leadershipPrinciples: "リーダーシップ原則",
+        bySession: "セッション別",
+        filterByDay: "日付でフィルター:",
+        allDays: "全日程",
+        oxfordSix: "オックスフォードの6つの変革スキル",
+        krakensModel: "Krakenの変革モデル",
+        scoresDesc6: "オックスフォード6つの変革スキルフレームワークにマッピングされたスコア。",
+        scoresDescWheel: "Krakenの変革モデルにマッピングされたスコア。",
+        currentPosition: "現在の位置",
+        improvementEase: "改善の容易さ",
+        overallGroupScore: "グループ総合スコア",
+        outOf10: "/ 10",
+        noResponses: "このエリアにマッピングされた回答はありません",
+        q1Label: "",
+        q1LabelEnd: "は現在これをどのように実施していますか？",
+        q2Label: "これを改善するには何が必要ですか？",
+        topThemes: "主要テーマ",
+        topThemesSub: "回答から浮かび上がる上位6つのリーダーシップ原則",
+        noThemes: "グループ化するには多様性が足りません。",
+        mostPowerful: "✦ 最も力強い原則",
+        mostPowerfulDesc: "これらの原則はKrakenチームのメンバーによって個人的に選ばれました。",
+        mostPowerfulHint: "選択を更新するには、下の「全原則」を開いて☆を使用してください。",
+        noStarred: "まだ選択された原則はありません。",
+        allPrinciples: "全リーダーシップ原則",
+        showAll: "▼ すべて表示",
+        hide: "▲ 非表示",
+        clickToAdd: "☆をクリックして最も力強い原則に追加",
+        responsesBySession: "セッション別回答",
+        q1avg: "Q1平均",
+        q2avg: "Q2平均",
+        strong: "強い (7–10)",
+        developing: "発展中 (4–6)",
+        emerging: "新興 (1–3)",
+        noData: "データなし",
+        enterPassword: "パスワードを入力",
+        incorrectPassword: "パスワードが正しくありません。もう一度お試しください。",
+        enter: "入力",
+        replaceDeck: "🔄 デッキを置き換える",
+        choosePptx: ".pptxファイルを選択",
+        uploadDeck: "プログラムデッキをアップロード",
+        uploadDeckSub: ".pptxファイルをドロップ — セッションが自動的に検出されます",
+        sessionDayMapping: "セッションと日程のマッピング",
+        addDay: "+ 日程を追加",
+        dragSessionsInfo: "セッションを列間にドラッグして割り当てます。",
+        unassigned: "未割り当てセッション",
+        dropHere: "ここにドロップ",
+        noResponsesDay: "この日のセッションの回答はまだありません。",
+        resetBranding: "Krakenブランドデフォルトにリセット",
+        manualPickers: "手動カラーピッカー",
+        primaryAccent: "プライマリアクセント",
+        strongScore: "強いスコア (7–10)",
+        developingScore: "発展中スコア (4–6)",
+        emergingScore: "新興スコア (1–3)",
+        uploadPalette: "カラーパレットをアップロード",
+        replacePalette: "別のパレットをアップロード",
+        chooseImage: "画像を選択",
+        extractedColours: "抽出された色 — クリックして適用",
+        highlightColour: "ハイライト色を設定",
+        lookingInward: "内省",
+        waysOfWorking: "働き方",
+        bringingToLife: "実践へ",
+        addCohort: "+ コホートを追加",
+        addCohortBtn: "追加",
+        cohortClientName: "クライアント名 *",
+        cohortName: "コホート名 *",
+        cohortMonth: "月 *",
+        cohortYear: "年 *",
+        uploadCsvCohort: "📂 CSVをアップロード",
+        compareAll: "⇄ すべて比較",
+        comparing: "全コホートを比較中",
+        responses: "回答",
+        language: "言語",
+      },
+      ar: {
+        appTitle: "محلل قيادة",
+        appSubtitle: "Kraken · أداة تلخيص ردود الجلسة",
+        branding: "العلامة التجارية",
+        thisPage: "⬇ هذه الصفحة",
+        fullReport: "⬇ التقرير الكامل",
+        singleCsv: "CSV واحد",
+        multipleCohorts: "مجموعات متعددة",
+        programmeSetup: "إعداد البرنامج",
+        uploadCsv: "تحميل ملف CSV",
+        uploadCsvSub: "صدّر من Google Forms أو Typeform أو أي أداة استبيان وأفلت هنا",
+        chooseCsvFile: "اختيار ملف CSV",
+        totalResponses: "إجمالي الردود",
+        sessionsCovered: "الجلسات المشمولة",
+        file: "ملف",
+        uploadNewCsv: "تحميل CSV جديد",
+        clientName: "اسم العميل",
+        addClientName: "⚠ أضف اسم العميل",
+        scoresbyArea: "الدرجات حسب المجال",
+        leadershipPrinciples: "مبادئ القيادة",
+        bySession: "حسب الجلسة",
+        filterByDay: "تصفية حسب اليوم:",
+        allDays: "جميع الأيام",
+        oxfordSix: "مهارات التحول الست لأكسفورد",
+        krakensModel: "نموذج تحول Kraken",
+        scoresDesc6: "درجات مرسومة على إطار مهارات التحول الست لأكسفورد.",
+        scoresDescWheel: "درجات مرسومة على نموذج تحول Kraken.",
+        currentPosition: "الموقع الحالي",
+        improvementEase: "سهولة التحسين",
+        overallGroupScore: "الدرجة الإجمالية للمجموعة",
+        outOf10: "من 10",
+        noResponses: "لا توجد ردود مرتبطة بهذا المجال",
+        q1Label: "كيف تُنفّذ",
+        q1LabelEnd: "هذا حالياً؟",
+        q2Label: "ما الذي يجب أن يحدث لتحسين هذا؟",
+        topThemes: "المحاور الرئيسية",
+        topThemesSub: "أكثر 6 مبادئ قيادة شيوعاً في الردود",
+        noThemes: "لا يوجد تنوع كافٍ للتجميع.",
+        mostPowerful: "✦ المبادئ الأقوى",
+        mostPowerfulDesc: "تم اختيار هذه المبادئ شخصياً من قبل عضو في فريق Kraken.",
+        mostPowerfulHint: "لتحديث الاختيار، افتح «كل المبادئ» أدناه واستخدم نجوم ☆.",
+        noStarred: "لم يتم اختيار أي مبادئ بعد.",
+        allPrinciples: "جميع مبادئ القيادة",
+        showAll: "▼ عرض الكل",
+        hide: "▲ إخفاء",
+        clickToAdd: "انقر على ☆ للإضافة إلى المبادئ الأقوى",
+        responsesBySession: "الردود حسب الجلسة",
+        q1avg: "متوسط Q1",
+        q2avg: "متوسط Q2",
+        strong: "قوي (7–10)",
+        developing: "في التطور (4–6)",
+        emerging: "ناشئ (1–3)",
+        noData: "لا توجد بيانات",
+        enterPassword: "أدخل كلمة المرور",
+        incorrectPassword: "كلمة مرور غير صحيحة. حاول مجدداً.",
+        enter: "دخول",
+        replaceDeck: "🔄 استبدال الملف",
+        choosePptx: "اختيار ملف .pptx",
+        uploadDeck: "تحميل ملف البرنامج",
+        uploadDeckSub: "أفلت ملف .pptx — سيتم اكتشاف الجلسات تلقائياً",
+        sessionDayMapping: "ربط الجلسات بالأيام",
+        addDay: "+ إضافة يوم",
+        dragSessionsInfo: "اسحب الجلسات بين الأعمدة.",
+        unassigned: "جلسات غير مُعيَّنة",
+        dropHere: "أفلت هنا",
+        noResponsesDay: "لا توجد ردود لجلسات هذا اليوم.",
+        resetBranding: "إعادة ضبط ألوان Kraken",
+        manualPickers: "منتقيات الألوان اليدوية",
+        primaryAccent: "اللون الأساسي",
+        strongScore: "درجة قوية (7–10)",
+        developingScore: "درجة متطورة (4–6)",
+        emergingScore: "درجة ناشئة (1–3)",
+        uploadPalette: "تحميل لوحة ألوان",
+        replacePalette: "تحميل لوحة أخرى",
+        chooseImage: "اختيار صورة",
+        extractedColours: "الألوان المستخرجة — انقر للتطبيق",
+        highlightColour: "تعيين لون التمييز",
+        lookingInward: "النظر للداخل",
+        waysOfWorking: "طرق العمل",
+        bringingToLife: "التطبيق العملي",
+        addCohort: "+ إضافة مجموعة",
+        addCohortBtn: "إضافة",
+        cohortClientName: "اسم العميل *",
+        cohortName: "اسم المجموعة *",
+        cohortMonth: "الشهر *",
+        cohortYear: "السنة *",
+        uploadCsvCohort: "📂 تحميل CSV",
+        compareAll: "⇄ مقارنة الكل",
+        comparing: "مقارنة جميع المجموعات",
+        responses: "ردود",
+        language: "اللغة",
+      },
+      nl: {
+        appTitle: "Leiderschap Analyser",
+        appSubtitle: "Kraken · Sessie Reactie Samenvatting Tool",
+        branding: "Huisstijl",
+        thisPage: "⬇ Deze pagina",
+        fullReport: "⬇ Volledig rapport",
+        singleCsv: "Enkel CSV",
+        multipleCohorts: "Meerdere cohorten",
+        programmeSetup: "Programma-instellingen",
+        uploadCsv: "Upload uw CSV-export",
+        uploadCsvSub: "Exporteer vanuit Google Forms, Typeform of een ander vragenlijsttool",
+        chooseCsvFile: "Kies CSV-bestand",
+        totalResponses: "Totaal reacties",
+        sessionsCovered: "Behandelde sessies",
+        file: "Bestand",
+        uploadNewCsv: "Nieuwe CSV uploaden",
+        clientName: "Klantnaam",
+        addClientName: "⚠ Voeg klantnaam toe",
+        scoresbyArea: "Scores per gebied",
+        leadershipPrinciples: "Leiderschapsprincipes",
+        bySession: "Per sessie",
+        filterByDay: "Filteren op dag:",
+        allDays: "Alle dagen",
+        oxfordSix: "Oxford's 6 transformatievaardigheden",
+        krakensModel: "Kraken's transformatiemodel",
+        scoresDesc6: "Scores gekoppeld aan het Oxford 6-transformatievaardighedenkader.",
+        scoresDescWheel: "Scores gekoppeld aan het Kraken-transformatiemodel.",
+        currentPosition: "Huidige positie",
+        improvementEase: "Gemak van verbetering",
+        overallGroupScore: "Totale groepsscore",
+        outOf10: "van 10",
+        noResponses: "Geen reacties gekoppeld aan dit gebied",
+        q1Label: "Hoe voert",
+        q1LabelEnd: "dit momenteel uit?",
+        q2Label: "Wat moet er gebeuren om dit te verbeteren?",
+        topThemes: "Belangrijkste thema's",
+        topThemesSub: "De 6 meest voorkomende leiderschapsprincipes",
+        noThemes: "Niet genoeg variatie om te groeperen.",
+        mostPowerful: "✦ Krachtigste principes",
+        mostPowerfulDesc: "Deze principes zijn persoonlijk geselecteerd door een lid van het Kraken-team.",
+        mostPowerfulHint: "Om de selectie bij te werken, open 'Alle principes' en gebruik de ☆ sterren.",
+        noStarred: "Nog geen principes geselecteerd.",
+        allPrinciples: "Alle leiderschapsprincipes",
+        showAll: "▼ Alles tonen",
+        hide: "▲ Verbergen",
+        clickToAdd: "Klik op ☆ om toe te voegen aan krachtigste principes",
+        responsesBySession: "Reacties per sessie",
+        q1avg: "Gem. Q1",
+        q2avg: "Gem. Q2",
+        strong: "Sterk (7–10)",
+        developing: "In ontwikkeling (4–6)",
+        emerging: "Opkomend (1–3)",
+        noData: "Geen gegevens",
+        enterPassword: "Wachtwoord invoeren",
+        incorrectPassword: "Onjuist wachtwoord. Probeer opnieuw.",
+        enter: "Invoeren",
+        replaceDeck: "🔄 Deck vervangen",
+        choosePptx: ".pptx-bestand kiezen",
+        uploadDeck: "Upload uw programma-deck",
+        uploadDeckSub: "Zet een .pptx-bestand neer — sessies worden automatisch gedetecteerd",
+        sessionDayMapping: "Sessie-dag koppeling",
+        addDay: "+ Dag toevoegen",
+        dragSessionsInfo: "Sleep sessies tussen kolommen.",
+        unassigned: "Niet-toegewezen sessies",
+        dropHere: "Sleep hier naartoe",
+        noResponsesDay: "Nog geen reacties voor de sessies van deze dag.",
+        resetBranding: "Kraken standaard huisstijl herstellen",
+        manualPickers: "Handmatige kleurkiezers",
+        primaryAccent: "Primair accent",
+        strongScore: "Sterke score (7–10)",
+        developingScore: "Ontwikkelingsscore (4–6)",
+        emergingScore: "Opkomende score (1–3)",
+        uploadPalette: "Kleurenpalet uploaden",
+        replacePalette: "Ander palet uploaden",
+        chooseImage: "Afbeelding kiezen",
+        extractedColours: "Geëxtraheerde kleuren — klik om toe te passen",
+        highlightColour: "Markeringskleur instellen",
+        lookingInward: "Naar binnen kijken",
+        waysOfWorking: "Werkwijzen",
+        bringingToLife: "In de praktijk brengen",
+        addCohort: "+ Cohort toevoegen",
+        addCohortBtn: "Toevoegen",
+        cohortClientName: "Klantnaam *",
+        cohortName: "Cohortnaam *",
+        cohortMonth: "Maand *",
+        cohortYear: "Jaar *",
+        uploadCsvCohort: "📂 CSV uploaden",
+        compareAll: "⇄ Alles vergelijken",
+        comparing: "Alle cohorten vergelijken",
+        responses: "reacties",
+        language: "Taal",
+      },
+      fi: {
+        appTitle: "Johtajuusanalysaattori",
+        appSubtitle: "Kraken · Istuntovastauksien yhteenvetotyökalu",
+        branding: "Brändi",
+        thisPage: "⬇ Tämä sivu",
+        fullReport: "⬇ Täydellinen raportti",
+        singleCsv: "Yksittäinen CSV",
+        multipleCohorts: "Useita kohorteja",
+        programmeSetup: "Ohjelman asetukset",
+        uploadCsv: "Lataa CSV-vienti",
+        uploadCsvSub: "Vie Google Formsista, Typeformista tai muusta kyselytyökalusta",
+        chooseCsvFile: "Valitse CSV-tiedosto",
+        totalResponses: "Vastauksia yhteensä",
+        sessionsCovered: "Käsitellyt istunnot",
+        file: "Tiedosto",
+        uploadNewCsv: "Lataa uusi CSV",
+        clientName: "Asiakkaan nimi",
+        addClientName: "⚠ Lisää asiakkaan nimi",
+        scoresbyArea: "Pisteet alueittain",
+        leadershipPrinciples: "Johtajuusperiaatteet",
+        bySession: "Istunnon mukaan",
+        filterByDay: "Suodata päivän mukaan:",
+        allDays: "Kaikki päivät",
+        oxfordSix: "Oxfordin 6 muutostaitoa",
+        krakensModel: "Krakenin muutosmalli",
+        scoresDesc6: "Pisteet kartoitettu Oxfordin 6 muutostaidon kehykseen.",
+        scoresDescWheel: "Pisteet kartoitettu Krakenin muutosmalliin.",
+        currentPosition: "Nykyinen asema",
+        improvementEase: "Parantamisen helppous",
+        overallGroupScore: "Ryhmän kokonaispisteet",
+        outOf10: "/ 10",
+        noResponses: "Ei vastauksia tälle alueelle",
+        q1Label: "",
+        q1LabelEnd: "– miten tämä toteutetaan tällä hetkellä?",
+        q2Label: "Mitä tarvitaan tämän parantamiseksi?",
+        topThemes: "Pääteemat",
+        topThemesSub: "6 yleisintä johtajuusperiaatetta",
+        noThemes: "Ei tarpeeksi vaihtelua ryhmittelyyn.",
+        mostPowerful: "✦ Voimakkaimmat periaatteet",
+        mostPowerfulDesc: "Nämä periaatteet on henkilökohtaisesti valinnut Krakenin tiimin jäsen.",
+        mostPowerfulHint: "Päivitä valinta avaamalla \"Kaikki periaatteet\" ja käyttämällä ☆ tähtiä.",
+        noStarred: "Ei vielä valittuja periaatteita.",
+        allPrinciples: "Kaikki johtajuusperiaatteet",
+        showAll: "▼ Näytä kaikki",
+        hide: "▲ Piilota",
+        clickToAdd: "Napsauta ☆ lisätäksesi voimakkaisiin periaatteisiin",
+        responsesBySession: "Vastaukset istunnon mukaan",
+        q1avg: "K.a. Q1",
+        q2avg: "K.a. Q2",
+        strong: "Vahva (7–10)",
+        developing: "Kehittyvä (4–6)",
+        emerging: "Nouseva (1–3)",
+        noData: "Ei tietoja",
+        enterPassword: "Syötä salasana",
+        incorrectPassword: "Väärä salasana. Yritä uudelleen.",
+        enter: "Kirjaudu",
+        replaceDeck: "🔄 Korvaa deck",
+        choosePptx: "Valitse .pptx-tiedosto",
+        uploadDeck: "Lataa ohjelma-deck",
+        uploadDeckSub: "Pudota .pptx-tiedosto — istunnot tunnistetaan automaattisesti",
+        sessionDayMapping: "Istuntojen päiväkartoitus",
+        addDay: "+ Lisää päivä",
+        dragSessionsInfo: "Vedä istuntoja sarakkeiden välillä.",
+        unassigned: "Kohdentamattomat istunnot",
+        dropHere: "Pudota tähän",
+        noResponsesDay: "Ei vastauksia tämän päivän istunnoille.",
+        resetBranding: "Palauta Kraken-brändin oletusasetukset",
+        manualPickers: "Manuaaliset värinvalitsimet",
+        primaryAccent: "Pääväri",
+        strongScore: "Vahva pisteet (7–10)",
+        developingScore: "Kehittyvät pisteet (4–6)",
+        emergingScore: "Nousevat pisteet (1–3)",
+        uploadPalette: "Lataa väripaletti",
+        replacePalette: "Lataa toinen paletti",
+        chooseImage: "Valitse kuva",
+        extractedColours: "Poimitut värit — napsauta soveltaaksesi",
+        highlightColour: "Aseta korostusväri",
+        lookingInward: "Sisäinen tarkastelu",
+        waysOfWorking: "Työskentelytavat",
+        bringingToLife: "Käytäntöön vieminen",
+        addCohort: "+ Lisää kohortti",
+        addCohortBtn: "Lisää",
+        cohortClientName: "Asiakkaan nimi *",
+        cohortName: "Kohortin nimi *",
+        cohortMonth: "Kuukausi *",
+        cohortYear: "Vuosi *",
+        uploadCsvCohort: "📂 Lataa CSV",
+        compareAll: "⇄ Vertaile kaikkia",
+        comparing: "Kaikkien kohorttien vertailu",
+        responses: "vastausta",
+        language: "Kieli",
+      },
+      no: {
+        appTitle: "Lederskap Analysator",
+        appSubtitle: "Kraken · Verktøy for oppsummering av sesjonsvar",
+        branding: "Merkevare",
+        thisPage: "⬇ Denne siden",
+        fullReport: "⬇ Full rapport",
+        singleCsv: "Enkelt CSV",
+        multipleCohorts: "Flere kohorter",
+        programmeSetup: "Programoppsett",
+        uploadCsv: "Last opp CSV-eksport",
+        uploadCsvSub: "Eksporter fra Google Forms, Typeform eller annet spørreskjemaverktøy",
+        chooseCsvFile: "Velg CSV-fil",
+        totalResponses: "Totale svar",
+        sessionsCovered: "Sesjoner dekket",
+        file: "Fil",
+        uploadNewCsv: "Last opp ny CSV",
+        clientName: "Kundenavn",
+        addClientName: "⚠ Legg til kundenavn",
+        scoresbyArea: "Poeng per område",
+        leadershipPrinciples: "Ledererskapsprinsipper",
+        bySession: "Per sesjon",
+        filterByDay: "Filtrer etter dag:",
+        allDays: "Alle dager",
+        oxfordSix: "Oxfords 6 transformasjonsferdigheter",
+        krakensModel: "Krakens transformasjonsmodell",
+        scoresDesc6: "Poeng kartlagt til Oxfords 6 transformasjonsferdighetsrammeverk.",
+        scoresDescWheel: "Poeng kartlagt til Krakens transformasjonsmodell.",
+        currentPosition: "Nåværende posisjon",
+        improvementEase: "Forbedringens letthet",
+        overallGroupScore: "Samlet gruppepoeng",
+        outOf10: "av 10",
+        noResponses: "Ingen svar kartlagt til dette området",
+        q1Label: "Hvordan gjennomfører",
+        q1LabelEnd: "dette for øyeblikket?",
+        q2Label: "Hva må til for å forbedre dette?",
+        topThemes: "Hovedtemaer",
+        topThemesSub: "De 6 vanligste ledererskapsprinsippene",
+        noThemes: "Ikke nok variasjon til å gruppere.",
+        mostPowerful: "✦ Sterkeste prinsipper",
+        mostPowerfulDesc: "Disse prinsippene er personlig valgt av et medlem av Kraken-teamet.",
+        mostPowerfulHint: "For å oppdatere utvalget, åpne «Alle prinsipper» og bruk ☆ stjernene.",
+        noStarred: "Ingen prinsipper valgt ennå.",
+        allPrinciples: "Alle ledererskapsprinsipper",
+        showAll: "▼ Vis alle",
+        hide: "▲ Skjul",
+        clickToAdd: "Klikk på ☆ for å legge til de sterkeste prinsippene",
+        responsesBySession: "Svar per sesjon",
+        q1avg: "Gj.sn. Q1",
+        q2avg: "Gj.sn. Q2",
+        strong: "Sterk (7–10)",
+        developing: "Under utvikling (4–6)",
+        emerging: "Fremvoksende (1–3)",
+        noData: "Ingen data",
+        enterPassword: "Skriv inn passord",
+        incorrectPassword: "Feil passord. Prøv igjen.",
+        enter: "Logg inn",
+        replaceDeck: "🔄 Erstatt deck",
+        choosePptx: "Velg .pptx-fil",
+        uploadDeck: "Last opp programdeck",
+        uploadDeckSub: "Slipp en .pptx-fil — sesjoner vil bli oppdaget automatisk",
+        sessionDayMapping: "Sesjon-til-dag-kartlegging",
+        addDay: "+ Legg til dag",
+        dragSessionsInfo: "Dra sesjoner mellom kolonner.",
+        unassigned: "Ikke-tilordnede sesjoner",
+        dropHere: "Slipp her",
+        noResponsesDay: "Ingen svar for dagens sesjoner.",
+        resetBranding: "Tilbakestill Kraken-merkefarger",
+        manualPickers: "Manuelle fargevalg",
+        primaryAccent: "Primærfarge",
+        strongScore: "Sterk poengsum (7–10)",
+        developingScore: "Utviklingspoengsum (4–6)",
+        emergingScore: "Fremvoksende poengsum (1–3)",
+        uploadPalette: "Last opp fargepalett",
+        replacePalette: "Last opp annen palett",
+        chooseImage: "Velg bilde",
+        extractedColours: "Ekstraherte farger — klikk for å bruke",
+        highlightColour: "Angi uthevingsfarge",
+        lookingInward: "Se innover",
+        waysOfWorking: "Arbeidsmåter",
+        bringingToLife: "Sette ut i livet",
+        addCohort: "+ Legg til kohort",
+        addCohortBtn: "Legg til",
+        cohortClientName: "Kundenavn *",
+        cohortName: "Kohortnavn *",
+        cohortMonth: "Måned *",
+        cohortYear: "År *",
+        uploadCsvCohort: "📂 Last opp CSV",
+        compareAll: "⇄ Sammenlign alle",
+        comparing: "Sammenligner alle kohorter",
+        responses: "svar",
+        language: "Språk",
+      },
+      sv: {
+        appTitle: "Ledarskapsanalysator",
+        appSubtitle: "Kraken · Verktyg för sammanfattning av sessionsvar",
+        branding: "Varumärke",
+        thisPage: "⬇ Denna sida",
+        fullReport: "⬇ Fullständig rapport",
+        singleCsv: "Enstaka CSV",
+        multipleCohorts: "Flera kohorter",
+        programmeSetup: "Programinställningar",
+        uploadCsv: "Ladda upp CSV-export",
+        uploadCsvSub: "Exportera från Google Forms, Typeform eller annan enkätverktyg",
+        chooseCsvFile: "Välj CSV-fil",
+        totalResponses: "Totalt antal svar",
+        sessionsCovered: "Täckta sessioner",
+        file: "Fil",
+        uploadNewCsv: "Ladda upp ny CSV",
+        clientName: "Kundnamn",
+        addClientName: "⚠ Lägg till kundnamn",
+        scoresbyArea: "Poäng per område",
+        leadershipPrinciples: "Ledarskapsprinciper",
+        bySession: "Per session",
+        filterByDay: "Filtrera efter dag:",
+        allDays: "Alla dagar",
+        oxfordSix: "Oxfords 6 transformationsfärdigheter",
+        krakensModel: "Krakens transformationsmodell",
+        scoresDesc6: "Poäng kartlagda till Oxfords 6 transformationsfärdigheters ramverk.",
+        scoresDescWheel: "Poäng kartlagda till Krakens transformationsmodell.",
+        currentPosition: "Nuvarande position",
+        improvementEase: "Förbättringens lätthet",
+        overallGroupScore: "Gruppens totalpoäng",
+        outOf10: "av 10",
+        noResponses: "Inga svar kartlagda till detta område",
+        q1Label: "Hur genomför",
+        q1LabelEnd: "detta för närvarande?",
+        q2Label: "Vad behöver hända för att förbättra detta?",
+        topThemes: "Huvudteman",
+        topThemesSub: "De 6 vanligaste ledarskapsprinciperna",
+        noThemes: "Inte tillräcklig variation för att gruppera.",
+        mostPowerful: "✦ Starkaste principerna",
+        mostPowerfulDesc: "Dessa principer har personligen valts av en medlem av Kraken-teamet.",
+        mostPowerfulHint: "För att uppdatera urvalet, öppna «Alla principer» och använd ☆ stjärnorna.",
+        noStarred: "Inga principer valda ännu.",
+        allPrinciples: "Alla ledarskapsprinciper",
+        showAll: "▼ Visa alla",
+        hide: "▲ Dölj",
+        clickToAdd: "Klicka på ☆ för att lägga till de starkaste principerna",
+        responsesBySession: "Svar per session",
+        q1avg: "Med. Q1",
+        q2avg: "Med. Q2",
+        strong: "Starkt (7–10)",
+        developing: "Under utveckling (4–6)",
+        emerging: "Framväxande (1–3)",
+        noData: "Inga data",
+        enterPassword: "Ange lösenord",
+        incorrectPassword: "Felaktigt lösenord. Försök igen.",
+        enter: "Logga in",
+        replaceDeck: "🔄 Ersätt deck",
+        choosePptx: "Välj .pptx-fil",
+        uploadDeck: "Ladda upp programdeck",
+        uploadDeckSub: "Släpp en .pptx-fil — sessioner identifieras automatiskt",
+        sessionDayMapping: "Session-till-dag-kartläggning",
+        addDay: "+ Lägg till dag",
+        dragSessionsInfo: "Dra sessioner mellan kolumner.",
+        unassigned: "Ej tilldelade sessioner",
+        dropHere: "Släpp här",
+        noResponsesDay: "Inga svar för dagens sessioner.",
+        resetBranding: "Återställ Kraken-varumärkesfärger",
+        manualPickers: "Manuella färgväljare",
+        primaryAccent: "Primär accent",
+        strongScore: "Stark poäng (7–10)",
+        developingScore: "Utvecklingspoäng (4–6)",
+        emergingScore: "Framväxande poäng (1–3)",
+        uploadPalette: "Ladda upp färgpalett",
+        replacePalette: "Ladda upp annan palett",
+        chooseImage: "Välj bild",
+        extractedColours: "Extraherade färger — klicka för att tillämpa",
+        highlightColour: "Ange markeringsfärg",
+        lookingInward: "Se inåt",
+        waysOfWorking: "Arbetssätt",
+        bringingToLife: "Omsätta i praktiken",
+        addCohort: "+ Lägg till kohort",
+        addCohortBtn: "Lägg till",
+        cohortClientName: "Kundnamn *",
+        cohortName: "Kohortnamn *",
+        cohortMonth: "Månad *",
+        cohortYear: "År *",
+        uploadCsvCohort: "📂 Ladda upp CSV",
+        compareAll: "⇄ Jämför alla",
+        comparing: "Jämför alla kohorter",
+        responses: "svar",
+        language: "Språk",
+      },
+    };
+
+    const LangContext = createContext("en");
+    const useLang = () => { const code = useContext(LangContext); return (key) => T[code]?.[key] ?? T.en[key] ?? key; };
 
     // ─── Colour utilities ─────────────────────────────────────────────────────
 
@@ -99,7 +1263,7 @@
     // ─── Mappings ─────────────────────────────────────────────────────────────
 
     const SIX_AREAS=["Purposeful Vision","Psychological Safety","Purposeful Technology","Disciplined Freedom","Adaptive Leadership","Radical Interdependence"];
-    const COMPETENCIES=["Psychological Safety","Conscious Leadership","Empowerment","Systems Thinking","Agility","Turning Points","Rituals","Storytelling"];
+    const COMPETENCIES=["Psychological Safety","Mastery of Self","Empowerment","Systems Thinking","Agility","Turning Points","Rituals","Storytelling"];
 
     const SESSION_TO_SIX={
       "a brief history of kraken human design":["Purposeful Vision","Purposeful Technology","Adaptive Leadership"],
@@ -114,11 +1278,12 @@
       "problem solving & course correcting":["Purposeful Technology","Adaptive Leadership"],
       "narrative leadership: storytelling for a change":["Purposeful Vision","Adaptive Leadership","Radical Interdependence"],
       "conscious leadership":["Purposeful Vision","Disciplined Freedom","Adaptive Leadership"],
+      "rituals":["Adaptive Leadership","Radical Interdependence"],
     };
     const SESSION_TO_COMP={
       "a brief history of kraken human design":[],
-      "the emotional landscape of transformation":["Psychological Safety","Conscious Leadership"],
-      "power dynamics (ego/drama triangle)":["Psychological Safety","Conscious Leadership"],
+      "the emotional landscape of transformation":["Psychological Safety","Mastery of Self"],
+      "power dynamics (ego/drama triangle)":["Psychological Safety","Mastery of Self"],
       "navigating complexity (turning points)":["Turning Points"],
       "psychological safety":["Psychological Safety"],
       "empowering others (vmost/multipliers)":["Empowerment"],
@@ -127,7 +1292,8 @@
       "risk mindset":[],
       "problem solving & course correcting":["Systems Thinking"],
       "narrative leadership: storytelling for a change":["Storytelling"],
-      "conscious leadership":[],
+      "conscious leadership":["Mastery of Self"],
+      "rituals":["Rituals"],
     };
 
     function avgScores(rows,keys,mapping) {
@@ -148,7 +1314,7 @@
           <div style={{flex:1,height:10,background:theme.bgTrack,borderRadius:5,overflow:"hidden"}}>
             <div style={{width:`${pct}%`,height:"100%",background:color||theme.primary,borderRadius:5,transition:"width 0.6s ease"}}/>
           </div>
-          <span style={{color:"#fff",fontWeight:700,minWidth:32,fontSize:14}}>{value!==null?value.toFixed(1):"—"}</span>
+          <span style={{color:theme.textBody,fontWeight:700,minWidth:32,fontSize:14}}>{value!==null?value.toFixed(1):"—"}</span>
         </div>
       );
     }
@@ -160,11 +1326,11 @@
       const theme=useTheme();
       return (
         <div style={{display:"flex",gap:4,background:theme.bgDeep,borderRadius:10,padding:4}}>
-          {tabs.map(t=>(
-            <button key={t.id} onClick={()=>onChange(t.id)} style={{flex:1,padding:"10px 16px",borderRadius:8,border:"none",cursor:"pointer",fontWeight:600,fontSize:14,
-              background:active===t.id?(pill?theme.bgCard:`linear-gradient(135deg,${theme.primary},${theme.primaryDark})`):"transparent",
-              color:active===t.id?(pill?theme.primary:"#fff"):theme.textMuted,transition:"all 0.2s"}}>
-              {t.label}
+          {tabs.map(tab=>(
+            <button key={tab.id} onClick={()=>onChange(tab.id)} style={{flex:1,padding:"10px 16px",borderRadius:8,border:"none",cursor:"pointer",fontWeight:600,fontSize:14,
+              background:active===tab.id?(pill?theme.bgCard:`linear-gradient(135deg,${theme.primary},${theme.primaryDark})`):"transparent",
+              color:active===tab.id?(pill?theme.primary:"#fff"):theme.textMuted,transition:"all 0.2s"}}>
+              {tab.label}
             </button>
           ))}
         </div>
@@ -172,9 +1338,10 @@
     }
     function ScoreLegend() {
       const theme=useTheme();
+      const t=useLang();
       return (
         <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
-          {[{color:theme.strong,label:"Strong (7–10)"},{color:theme.developing,label:"Developing (4–6)"},{color:theme.secondary,label:"Emerging (1–3)"},{color:theme.border,label:"No data"}].map(({color,label})=>(
+          {[{color:theme.border,label:t("noData")},{color:theme.secondary,label:t("emerging")},{color:theme.developing,label:t("developing")},{color:theme.strong,label:t("strong")}].map(({color,label})=>(
             <div key={label} style={{display:"flex",alignItems:"center",gap:6}}>
               <div style={{width:12,height:12,borderRadius:3,background:color}}/>
               <span style={{color:theme.textSub,fontSize:13}}>{label}</span>
@@ -193,25 +1360,66 @@
       return theme.secondary;
     }
 
+    // ─── Contributing sessions helper ────────────────────────────────────────
+
+    function getContributingSessions(areaName, mapping) {
+      return Object.entries(mapping)
+        .filter(([, areas]) => areas.includes(areaName))
+        .map(([session]) => session.replace(/\b\w/g, c => c.toUpperCase()));
+    }
+
+    function SessionPills({sessions}) {
+      const theme = useTheme();
+      const [open, setOpen] = useState(false);
+      if (!sessions || sessions.length === 0) return null;
+      return (
+        <div style={{marginTop:12}}>
+          <button
+            onClick={() => setOpen(v=>!v)}
+            style={{background:"none",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center",gap:5,color:theme.textMuted,fontSize:11}}
+          >
+            <span style={{fontSize:10}}>{open?"▲":"▼"}</span>
+            {sessions.length} contributing session{sessions.length!==1?"s":""}
+          </button>
+          {open && (
+            <div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:6}}>
+              {sessions.map(s=>(
+                <span key={s} style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,borderRadius:20,padding:"3px 10px",fontSize:11,color:theme.textSub}}>
+                  {s}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     // ─── Analysis components ──────────────────────────────────────────────────
 
     function AreaCard({name,data,clientName}) {
       const theme=useTheme();
+      const t=useLang();
       const client=clientName||"this organisation";
+      const sessions = getContributingSessions(name, SESSION_TO_SIX);
       if (!data||data.count===0) return (
-        <Card><h3 style={{color:theme.primary,marginBottom:6,fontSize:16}}>{name}</h3><p style={{color:theme.textMuted,fontSize:13}}>No responses mapped to this area</p></Card>
+        <Card>
+          <h3 style={{color:theme.primary,marginBottom:6,fontSize:16}}>{name}</h3>
+          <p style={{color:theme.textMuted,fontSize:13}}>{t("noResponses")}</p>
+          <SessionPills sessions={sessions}/>
+        </Card>
       );
       return (
         <Card style={{borderLeft:`3px solid ${scoreColor(data.q1Avg,theme)}`}}>
-          <h3 style={{color:"#fff",marginBottom:12,fontSize:16}}>{name}</h3>
+          <h3 style={{color:theme.textBody,marginBottom:12,fontSize:16}}>{name}</h3>
           <div style={{marginBottom:8}}>
-            <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:4}}>How is <strong style={{color:"#fff"}}>{client}</strong> currently conducting this?</label>
+            <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:4}}>{t("q1Label")} <strong style={{color:"#fff"}}>{client}</strong> {t("q1LabelEnd")}</label>
             <ScoreBar value={data.q1Avg} color={scoreColor(data.q1Avg,theme)}/>
           </div>
           <div>
-            <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:4}}>How easy will it be to make meaningful progress in this area?</label>
+            <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:4}}>{t("q2Label")}</label>
             <ScoreBar value={data.q2Avg} color={scoreColor(data.q2Avg,theme)}/>
           </div>
+          <SessionPills sessions={sessions}/>
         </Card>
       );
     }
@@ -224,30 +1432,65 @@
       );
     }
 
+    function groupAvg(areas, scores) {
+      const q1s = areas.map(a => scores[a]?.q1Avg).filter(v => v !== null && v !== undefined);
+      const q2s = areas.map(a => scores[a]?.q2Avg).filter(v => v !== null && v !== undefined);
+      return {
+        q1: q1s.length ? q1s.reduce((a,b)=>a+b,0)/q1s.length : null,
+        q2: q2s.length ? q2s.reduce((a,b)=>a+b,0)/q2s.length : null,
+      };
+    }
+
     function WheelView({scores}) {
       const theme=useTheme();
-      const Ring=({areas,label})=>(
-        <div style={{marginBottom:24}}>
-          <h4 style={{color:theme.textMuted,fontSize:12,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>{label}</h4>
-          <div style={{display:"grid",gridTemplateColumns:`repeat(${areas.length},1fr)`,gap:10}}>
-            {areas.map(area=>{
-              const d=scores[area]; const q1=d?.q1Avg??null; const q2=d?.q2Avg??null;
-              return (
-                <div key={area} style={{background:theme.bgCard,border:`2px solid ${scoreColor(q1,theme)}`,borderRadius:12,padding:"16px 20px"}}>
-                  <div style={{color:"#fff",fontWeight:700,fontSize:14,marginBottom:10}}>{area}</div>
-                  <div style={{marginBottom:6}}><span style={{color:theme.textSub,fontSize:11}}>Q1 Position</span><ScoreBar value={q1} color={scoreColor(q1,theme)}/></div>
-                  <div><span style={{color:theme.textSub,fontSize:11}}>Q2 Progress ease</span><ScoreBar value={q2} color={scoreColor(q2,theme)}/></div>
+      const t=useLang();
+
+      const Ring=({areas,label})=>{
+        const avg=groupAvg(areas,scores);
+        const groupColor=scoreColor(avg.q1,theme);
+        return (
+          <div style={{marginBottom:28}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,padding:"12px 16px",background:theme.bgDeep,borderRadius:10,border:`1px solid ${groupColor}`}}>
+              <div>
+                <div style={{color:groupColor,fontWeight:800,fontSize:15,textTransform:"uppercase",letterSpacing:1}}>{label}</div>
+                <div style={{color:theme.textMuted,fontSize:12,marginTop:2}}>{t("overallGroupScore")}</div>
+              </div>
+              <div style={{display:"flex",gap:24,alignItems:"center"}}>
+                <div style={{textAlign:"center"}}>
+                  <div style={{color:theme.textMuted,fontSize:11,marginBottom:2}}>{t("currentPosition")}</div>
+                  <div style={{color:groupColor,fontWeight:800,fontSize:28,lineHeight:1}}>{avg.q1!==null?avg.q1.toFixed(1):"—"}</div>
+                  <div style={{color:theme.textMuted,fontSize:10}}>{t("outOf10")}</div>
                 </div>
-              );
-            })}
+                <div style={{textAlign:"center"}}>
+                  <div style={{color:theme.textMuted,fontSize:11,marginBottom:2}}>{t("improvementEase")}</div>
+                  <div style={{color:scoreColor(avg.q2,theme),fontWeight:800,fontSize:28,lineHeight:1}}>{avg.q2!==null?avg.q2.toFixed(1):"—"}</div>
+                  <div style={{color:theme.textMuted,fontSize:10}}>{t("outOf10")}</div>
+                </div>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:`repeat(${areas.length},1fr)`,gap:10}}>
+              {areas.map(area=>{
+                const d=scores[area]; const q1=d?.q1Avg??null; const q2=d?.q2Avg??null;
+                const sessions=getContributingSessions(area,SESSION_TO_COMP);
+                return (
+                  <div key={area} style={{background:theme.bgCard,border:`2px solid ${scoreColor(q1,theme)}`,borderRadius:12,padding:"16px 20px"}}>
+                    <div style={{color:theme.textBody,fontWeight:700,fontSize:14,marginBottom:10}}>{area}</div>
+                    <div style={{marginBottom:6}}><span style={{color:theme.textSub,fontSize:11}}>{t("currentPosition")}</span><ScoreBar value={q1} color={scoreColor(q1,theme)}/></div>
+                    <div><span style={{color:theme.textSub,fontSize:11}}>{t("improvementEase")}</span><ScoreBar value={q2} color={scoreColor(q2,theme)}/></div>
+                    <SessionPills sessions={sessions}/>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      );
+        );
+      };
+
       return (
         <div>
-          <Ring areas={["Psychological Safety","Conscious Leadership"]} label="Core — Inner Ring"/>
-          <Ring areas={["Empowerment","Systems Thinking","Agility"]} label="Middle Ring"/>
-          <Ring areas={["Turning Points","Rituals","Storytelling"]} label="Outer Ring"/>
+          <Ring areas={["Psychological Safety","Mastery of Self"]} label={t("lookingInward")}/>
+          <Ring areas={["Empowerment","Systems Thinking","Agility"]} label={t("waysOfWorking")}/>
+          <Ring areas={["Turning Points","Rituals","Storytelling"]} label={t("bringingToLife")}/>
         </div>
       );
     }
@@ -302,81 +1545,94 @@
     function describeCluster(texts) {
       if (texts.length === 0) return "";
 
-      // Pull out unique non-trivial words (>4 chars) across all responses
-      const stopWords = new Set(["their","there","where","which","should","would","could","about","these","those","being","having","making","doing","going","with","that","this","from","have","will","when","what","your","they","them","into","also","more","such","each","than","then","then","just","very","much","some","like","been","well","need","make","take","give","show","help","work","team","lead","leadership","people","organisation","organization"]);
+      // Score each response for how principle-like it is
+      const score = t => {
+        let s = t.trim().split(/\s+/).length * 0.5;
+        if (/^[A-Z]/.test(t)) s += 2;
+        if (!t.endsWith("?")) s += 1;
+        if (/\b(that|where|who|so that|in order|through|by)\b/i.test(t)) s += 3;
+        if (/\b(must|should|need to|commit|ensure|always|never|every|create|build|foster|enable)\b/i.test(t)) s += 2;
+        return s;
+      };
 
-      const wordFreq = {};
-      texts.forEach(t => {
-        t.toLowerCase().replace(/[^a-z\s]/g,"").split(/\s+/).forEach(w => {
-          if (w.length > 4 && !stopWords.has(w)) wordFreq[w] = (wordFreq[w]||0) + 1;
-        });
-      });
+      const sorted = [...texts].sort((a,b) => score(b) - score(a));
+      const anchor = sorted[0];
+      const rest = sorted.slice(1);
 
-      // Top recurring words that give flavour
-      const topWords = Object.entries(wordFreq)
-        .sort((a,b) => b[1]-a[1])
-        .slice(0, 8)
-        .map(([w]) => w);
-
-      // Pick the most "complete" response as the anchor (longest that reads like a principle)
-      const anchor = texts
-        .map(t => ({ t, score: t.split(" ").length + (t.includes(" that ")||t.includes(" where ")||t.includes(" who ")?3:0) }))
-        .sort((a,b) => b.score - a.score)[0].t;
-
-      // Build description: how many responses, the anchor idea, any flavour words not already in anchor
-      const anchorLower = anchor.toLowerCase();
-      const flavour = topWords.filter(w => !anchorLower.includes(w)).slice(0,3);
-
-      let desc = `${texts.length > 1 ? `${texts.length} respondents touched on` : "One respondent focused on"} this theme. `;
-
-      // Summarise what they collectively said
       if (texts.length === 1) {
-        desc += `The response emphasises: "${anchor}."`;
-      } else {
-        // Use anchor as the representative principle
-        desc += `A representative view: "${anchor.charAt(0).toUpperCase() + anchor.slice(1).replace(/\.?$/,'.')}"`;
-        if (flavour.length > 0) {
-          desc += ` Other responses also highlighted ${flavour.join(", ")}.`;
-        }
+        return `"${anchor.charAt(0).toUpperCase() + anchor.slice(1).replace(/\.?\s*$/,".")}"`;
       }
-      return desc;
+
+      // Extract the single clearest action from each remaining response.
+      // Strategy: find the first verb phrase — look for action verbs followed by their object.
+      // If the whole response is short enough (≤10 words), just use it directly as a quote fragment.
+      const actionVerbs = /\b(create|build|foster|enable|ensure|commit|hold|lead|listen|speak|trust|challenge|support|empower|develop|drive|embrace|encourage|establish|maintain|model|own|prioritise|prioritize|promote|protect|reward|share|show|stand|take|treat|uphold|value|welcome)\b/i;
+
+      const extractAction = t => {
+        t = t.trim().replace(/\.?\s*$/, "");
+        const words = t.split(/\s+/);
+        // Short response — use as-is (lowercase, no quotes — will be embedded in a list)
+        if (words.length <= 9) return t.charAt(0).toLowerCase() + t.slice(1);
+        // Longer — find the first action verb and take up to 8 words from there
+        const lower = t.toLowerCase();
+        const match = lower.match(actionVerbs);
+        if (match) {
+          const idx = lower.indexOf(match[0]);
+          // Find character position → word position
+          const before = t.substring(0, idx).split(/\s+/).filter(Boolean).length;
+          const slice = words.slice(before, before + 8).join(" ");
+          return slice.charAt(0).toLowerCase() + slice.slice(1).replace(/\.?\s*$/, "");
+        }
+        // Fallback — first 8 words
+        return words.slice(0,8).join(" ").replace(/\.?\s*$/,"").toLowerCase();
+      };
+
+      // Deduplicate actions and filter anything that closely echoes the anchor
+      const anchorLower = anchor.toLowerCase();
+      const actions = [];
+      rest.forEach(t => {
+        const a = extractAction(t);
+        // Require at least 3 words to avoid stub fragments
+        if (a && a.split(/\s+/).length >= 3 && !anchorLower.includes(a.substring(0,15))) {
+          actions.push(a);
+        }
+      });
+
+      const uniqueActions = [...new Set(actions)].slice(0, 4);
+
+      return `"${anchor.charAt(0).toUpperCase() + anchor.slice(1).replace(/\.?\s*$/,".")}"`;
+
     }
 
-    // "Powerful" = long, uses vivid language, structurally clear (a principle-like sentence)
-    function pickPowerful(responses, n=3) {
-      const POWER_WORDS = ["always","never","must","ensure","every","commit","bold","trust","courage","create","build","enable","champion","foster","drive","empower","lead","hold","own"];
-      const scored = responses.map(r => {
-        const lower = r.toLowerCase();
-        const words = r.split(/\s+/);
-        let score = 0;
-        score += Math.min(words.length / 4, 5);           // length bonus (max 5)
-        score += POWER_WORDS.filter(w => lower.includes(w)).length * 1.5;
-        if (/^[A-Z]/.test(r)) score += 1;                 // starts with capital
-        if (!r.endsWith("?")) score += 0.5;               // not a question
-        if (r.includes(" that ") || r.includes(" where ") || r.includes(" who ")) score += 1; // principle-like structure
-        return { text: r, score };
-      });
-      return scored.sort((a,b) => b.score - a.score).slice(0, n).map(s => s.text);
-    }
 
     function Q3Panel({rows}) {
       const theme=useTheme();
+      const t=useLang();
       const [showAll,setShowAll]=useState(false);
+      const [starred,setStarred]=useState(new Set());
       const responses=rows.map(r=>r.q3).filter(r=>r.trim().length>0);
 
       if (responses.length===0) return <Card><p style={{color:theme.textMuted}}>No Q3 responses to display.</p></Card>;
 
       const clusters=clusterResponses(responses);
-      const powerful=pickPowerful(responses,3);
+      const starredList=responses.filter(r=>starred.has(r));
+
+      const toggleStar=(r)=>{
+        setStarred(prev=>{
+          const next=new Set(prev);
+          if (next.has(r)) next.delete(r); else next.add(r);
+          return next;
+        });
+      };
 
       return (
         <div>
           {/* Top 6 themes */}
           <Card style={{borderColor:theme.developing,borderWidth:2,marginBottom:16}}>
-            <h3 style={{color:theme.developing,marginBottom:4}}>Top Themes</h3>
-            <p style={{color:theme.textSub,fontSize:13,marginBottom:16}}>The 6 most common leadership principles emerging from responses</p>
+            <h3 style={{color:theme.developing,marginBottom:4}}>{t("topThemes")}</h3>
+            <p style={{color:theme.textSub,fontSize:13,marginBottom:16}}>{t("topThemesSub")}</p>
             {clusters.length===0
-              ? <p style={{color:theme.textMuted,fontSize:13}}>Not enough variety to cluster — see all responses below.</p>
+              ? <p style={{color:theme.textMuted,fontSize:13}}>{t("noThemes")}</p>
               : clusters.map((c,i)=>(
                 <div key={i} style={{marginBottom:16,paddingBottom:16,borderBottom:i<clusters.length-1?`1px solid ${theme.border}`:"none"}}>
                   <div style={{display:"flex",gap:12,alignItems:"flex-start",marginBottom:8}}>
@@ -384,12 +1640,11 @@
                       {i+1}
                     </div>
                     <div style={{flex:1}}>
-                      <div style={{color:"#fff",fontWeight:700,fontSize:14,marginBottom:2}}>{c.label}</div>
-                      <div style={{color:theme.textMuted,fontSize:12}}>{c.count} response{c.count!==1?"s":""} in this theme</div>
+                      <div style={{color:theme.textBody,fontWeight:700,fontSize:15,marginBottom:2}}>{c.label}</div>
                     </div>
                     <div style={{color:theme.developing,fontWeight:800,fontSize:20,flexShrink:0}}>{c.count}</div>
                   </div>
-                  <div style={{marginLeft:40,color:theme.textSub,fontSize:13,lineHeight:1.6,fontStyle:"italic"}}>
+                  <div style={{marginLeft:40,color:theme.textSub,fontSize:15,lineHeight:1.7,fontStyle:"italic"}}>
                     {describeCluster(c.texts)}
                   </div>
                 </div>
@@ -397,30 +1652,50 @@
             }
           </Card>
 
-          {/* 3 powerful quotes */}
+          {/* Most Powerful — user curated */}
           <Card style={{borderColor:theme.primary,borderWidth:2,marginBottom:16}}>
-            <h3 style={{color:theme.primary,marginBottom:4}}>✦ Most Powerful Principles</h3>
-            <p style={{color:theme.textSub,fontSize:13,marginBottom:16}}>Three responses with the most impact and clarity</p>
-            {powerful.map((r,i)=>(
-              <div key={i} style={{background:theme.bgHover,borderLeft:`3px solid ${theme.primary}`,padding:"12px 16px",marginBottom:10,borderRadius:"0 8px 8px 0",color:"#fff",fontStyle:"italic",fontSize:15,lineHeight:1.5}}>
-                "{r}"
+            <div style={{marginBottom:12}}>
+              <h3 style={{color:theme.primary,marginBottom:6}}>{t("mostPowerful")}</h3>
+              <p style={{color:theme.textSub,fontSize:13,lineHeight:1.6}}>{t("mostPowerfulDesc")}</p>
+              <p style={{color:theme.textMuted,fontSize:12,marginTop:6}}>{t("mostPowerfulHint")}</p>
+            </div>
+            {starredList.length===0 ? (
+              <div style={{background:theme.bgDeep,borderRadius:8,padding:"20px 16px",textAlign:"center",marginTop:12}}>
+                <div style={{fontSize:28,marginBottom:8}}>☆</div>
+                <p style={{color:theme.textMuted,fontSize:13}}>{t("noStarred")}</p>
               </div>
-            ))}
+            ) : (
+              <div style={{marginTop:12}}>
+                {starredList.map((r,i)=>(
+                  <div key={i} style={{display:"flex",gap:10,alignItems:"flex-start",background:theme.bgHover,borderLeft:`3px solid ${theme.primary}`,padding:"12px 16px",marginBottom:10,borderRadius:"0 8px 8px 0"}}>
+                    <div style={{color:theme.textBody,fontStyle:"italic",fontSize:15,lineHeight:1.5,flex:1}}>"{r}"</div>
+                    <button onClick={()=>toggleStar(r)} title="Remove" style={{background:"none",border:"none",color:"#ff4d6d",cursor:"pointer",fontSize:18,flexShrink:0,padding:0,lineHeight:1}}>★</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
 
-          {/* All responses collapsible */}
+          {/* All responses with star voting */}
           <Card>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setShowAll(v=>!v)}>
-              <h3 style={{color:"#fff"}}>All Leadership Principles ({responses.length})</h3>
-              <span style={{color:theme.textMuted,fontSize:13}}>{showAll?"▲ Hide":"▼ Show all"}</span>
+              <h3 style={{color:theme.textBody}}>{t("allPrinciples")} ({responses.length})</h3>
+              <span style={{color:theme.textMuted,fontSize:13}}>{showAll?t("hide"):t("showAll")}</span>
             </div>
             {showAll&&(
               <div style={{marginTop:12}}>
-                {responses.map((r,i)=>(
-                  <div key={i} style={{borderBottom:`1px solid ${theme.border}`,padding:"10px 0",color:"#ccc",fontSize:14}}>
-                    {i+1}. {r}
-                  </div>
-                ))}
+                <p style={{color:theme.textMuted,fontSize:12,marginBottom:12}}>{t("clickToAdd")}</p>
+                {responses.map((r,i)=>{
+                  const isStarred=starred.has(r);
+                  return (
+                    <div key={i} style={{display:"flex",gap:10,alignItems:"flex-start",borderBottom:`1px solid ${theme.border}`,padding:"10px 0",background:isStarred?`${theme.primary}11`:"none",borderRadius:isStarred?6:0,paddingLeft:isStarred?8:0,transition:"all 0.2s"}}>
+                      <button onClick={()=>toggleStar(r)} title={isStarred?"Remove from Most Powerful":"Add to Most Powerful"} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,flexShrink:0,padding:0,lineHeight:1,color:isStarred?theme.primary:theme.textMuted,transition:"color 0.2s"}}>
+                        {isStarred?"★":"☆"}
+                      </button>
+                      <span style={{color:isStarred?"#fff":"#ccc",fontSize:14,lineHeight:1.5,fontStyle:isStarred?"italic":"normal"}}>{i+1}. {r}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </Card>
@@ -430,21 +1705,22 @@
 
     function SessionBreakdown({rows}) {
       const theme=useTheme();
+      const t=useLang();
       const sessions={};
       rows.forEach(r=>{ if(!sessions[r.session]) sessions[r.session]=[]; sessions[r.session].push(r); });
       return (
         <Card>
-          <h3 style={{color:"#fff",marginBottom:12}}>Responses by Session</h3>
+          <h3 style={{color:theme.textBody,marginBottom:12}}>{t("responsesBySession")}</h3>
           {Object.entries(sessions).map(([session,sRows])=>{
             const q1s=sRows.map(r=>r.q1).filter(Boolean),q2s=sRows.map(r=>r.q2).filter(Boolean);
             const q1a=q1s.length?q1s.reduce((a,b)=>a+b,0)/q1s.length:null;
             const q2a=q2s.length?q2s.reduce((a,b)=>a+b,0)/q2s.length:null;
             return (
               <div key={session} style={{borderBottom:`1px solid ${theme.border}`,padding:"10px 0"}}>
-                <div style={{color:"#fff",fontWeight:600,marginBottom:6}}>{session}</div>
+                <div style={{color:theme.textBody,fontWeight:600,marginBottom:6}}>{session}</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                  <div><span style={{color:theme.textSub,fontSize:11}}>Q1 avg ({q1s.length})</span><ScoreBar value={q1a} color={scoreColor(q1a,theme)}/></div>
-                  <div><span style={{color:theme.textSub,fontSize:11}}>Q2 avg ({q2s.length})</span><ScoreBar value={q2a} color={scoreColor(q2a,theme)}/></div>
+                  <div><span style={{color:theme.textSub,fontSize:11}}>{t("q1avg")} ({q1s.length})</span><ScoreBar value={q1a} color={scoreColor(q1a,theme)}/></div>
+                  <div><span style={{color:theme.textSub,fontSize:11}}>{t("q2avg")} ({q2s.length})</span><ScoreBar value={q2a} color={scoreColor(q2a,theme)}/></div>
                 </div>
               </div>
             );
@@ -453,41 +1729,292 @@
       );
     }
 
-    // ─── Analysis View (shared between single & multi cohort) ─────────────────
+    // ─── PPTX parser ─────────────────────────────────────────────────────────
+    // Reads a .pptx (zip) file, extracts text from each slide, then attempts
+    // to detect "Day N" headings and assign sessions to days.
 
-    function AnalysisView({rows,clientName}) {
-      const theme=useTheme();
-      const [activeSection,setActiveSection]=useState("scores");
-      const [activeTab,setActiveTab]=useState("six");
-      const sixScores=avgScores(rows,SIX_AREAS,SESSION_TO_SIX);
-      const compScores=avgScores(rows,COMPETENCIES,SESSION_TO_COMP);
+    async function parsePptxDayMap(file) {
+      const zip = await JSZip.loadAsync(file);
+
+      // Get slide files in order
+      const slideFiles = Object.keys(zip.files)
+        .filter(n => n.match(/^ppt\/slides\/slide\d+\.xml$/))
+        .sort((a,b) => {
+          const na = parseInt(a.match(/\d+/)[0]);
+          const nb = parseInt(b.match(/\d+/)[0]);
+          return na - nb;
+        });
+
+      // Extract all text from a slide XML
+      const slideTexts = await Promise.all(slideFiles.map(async name => {
+        const xml = await zip.files[name].async("text");
+        const matches = xml.match(/<a:t[^>]*>([^<]+)<\/a:t>/g) || [];
+        return matches.map(m => m.replace(/<[^>]+>/g,"").trim()).filter(Boolean);
+      }));
+
+      // Known session titles (lowercase) for matching
+      const knownSessions = Object.keys(SESSION_TO_SIX);
+
+      // Build day map by scanning slides for "Day N" markers
+      const dayMap = {};
+      let currentDay = null;
+
+      slideTexts.forEach(texts => {
+        const fullText = texts.join(" ").toLowerCase();
+        const slideStr = texts.join("\n");
+
+        // Detect day header — look for "day 1", "day 2" etc anywhere on slide
+        const dayMatch = fullText.match(/\bday\s*(\d+)\b/);
+        if (dayMatch) {
+          currentDay = `Day ${dayMatch[1]}`;
+          if (!dayMap[currentDay]) dayMap[currentDay] = [];
+        }
+
+        if (currentDay) {
+          // Try to match any known session title appearing in this slide's text
+          knownSessions.forEach(session => {
+            const sessionWords = session.replace(/[()\/]/g," ").split(/\s+/).filter(w=>w.length>3);
+            const matchCount = sessionWords.filter(w => fullText.includes(w)).length;
+            const threshold = Math.max(2, Math.floor(sessionWords.length * 0.5));
+            if (matchCount >= threshold && !dayMap[currentDay].includes(session)) {
+              dayMap[currentDay].push(session);
+            }
+          });
+        }
+      });
+
+      // Also try: if no day headers found, look for explicit agenda/schedule slide patterns
+      if (Object.keys(dayMap).length === 0) {
+        // Fall back: group consecutive sessions by position into days
+        const allFound = [];
+        slideTexts.forEach(texts => {
+          const fullText = texts.join(" ").toLowerCase();
+          knownSessions.forEach(session => {
+            const sessionWords = session.replace(/[()\/]/g," ").split(/\s+/).filter(w=>w.length>3);
+            const matchCount = sessionWords.filter(w => fullText.includes(w)).length;
+            if (matchCount >= Math.max(2, Math.floor(sessionWords.length * 0.5))) {
+              if (!allFound.includes(session)) allFound.push(session);
+            }
+          });
+        });
+        // Split evenly across 4 days
+        const perDay = Math.ceil(allFound.length / 4);
+        for (let d=0; d<4; d++) {
+          dayMap[`Day ${d+1}`] = allFound.slice(d*perDay, (d+1)*perDay);
+        }
+      }
+
+      return dayMap;
+    }
+
+    // ─── Analysis View ────────────────────────────────────────────────────────
+
+    function AnalysisView({rows, clientName, dayMap}) {
+      const theme = useTheme();
+      const t = useLang();
+      const [activeSection, setActiveSection] = useState("scores");
+      const [activeTab, setActiveTab] = useState("six");
+      const [activeDay, setActiveDay] = useState("all");
+
+      const days = Object.keys(dayMap || {});
+      const hasDays = days.length > 0 && Object.values(dayMap || {}).some(d => d.length > 0);
+
+      const filteredRows = (hasDays && activeDay !== "all")
+        ? rows.filter(r => (dayMap[activeDay] || []).some(s => r.session.toLowerCase() === s.toLowerCase()))
+        : rows;
+
+      const sixScores = avgScores(filteredRows, SIX_AREAS, SESSION_TO_SIX);
+      const compScores = avgScores(filteredRows, COMPETENCIES, SESSION_TO_COMP);
+
       return (
         <div>
           <div style={{marginBottom:24}}>
-            <TabBar tabs={[{id:"scores",label:"Scores by Area"},{id:"q3",label:"Leadership Principles (Q3)"},{id:"sessions",label:"By Session"}]} active={activeSection} onChange={setActiveSection}/>
+            <TabBar tabs={[
+              {id:"scores", label:t("scoresbyArea")},
+              {id:"q3", label:t("leadershipPrinciples")},
+              {id:"sessions", label:t("bySession")},
+            ]} active={activeSection} onChange={setActiveSection}/>
           </div>
-          {activeSection==="scores"&&(
+
+          {activeSection === "scores" && (
             <>
+              {hasDays && (
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:20,alignItems:"center"}}>
+                  <span style={{color:theme.textMuted,fontSize:12,marginRight:4}}>{t("filterByDay")}</span>
+                  {["all",...days].map(d=>(
+                    <button key={d} onClick={()=>setActiveDay(d)} style={{
+                      padding:"5px 14px", borderRadius:20,
+                      border:`1px solid ${activeDay===d?theme.primary:theme.border}`,
+                      background:activeDay===d?`${theme.primary}22`:"transparent",
+                      color:activeDay===d?theme.primary:theme.textSub,
+                      cursor:"pointer", fontSize:13,
+                      fontWeight:activeDay===d?700:400,
+                      transition:"all 0.15s",
+                    }}>
+                      {d==="all"?t("allDays"):d}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div style={{maxWidth:480,marginBottom:20}}>
-                <TabBar tabs={[{id:"six",label:"Oxford's 6 Transformation Skills"},{id:"wheel",label:"Competency Wheel"}]} active={activeTab} onChange={setActiveTab} pill/>
+                <TabBar tabs={[
+                  {id:"six",label:t("oxfordSix")},
+                  {id:"wheel",label:t("krakensModel")},
+                ]} active={activeTab} onChange={setActiveTab} pill/>
               </div>
               <ScoreLegend/>
-              {activeTab==="six"&&(
+              {activeTab==="six" && (
                 <>
-                  <p style={{color:theme.textSub,fontSize:13,marginBottom:16}}>Scores mapped to Oxford's 6 transformation skills framework. Each session contributes to all areas it maps to.</p>
+                  <p style={{color:theme.textSub,fontSize:13,marginBottom:16}}>{t("scoresDesc6")}</p>
                   <SixAreasView scores={sixScores} clientName={clientName}/>
                 </>
               )}
-              {activeTab==="wheel"&&(
+              {activeTab==="wheel" && (
                 <>
-                  <p style={{color:theme.textSub,fontSize:13,marginBottom:16}}>Scores mapped to the competency wheel. Inner ring represents core competencies.</p>
+                  <p style={{color:theme.textSub,fontSize:13,marginBottom:16}}>{t("scoresDescWheel")}</p>
                   <WheelView scores={compScores}/>
                 </>
               )}
             </>
           )}
-          {activeSection==="q3"&&<Q3Panel rows={rows}/>}
-          {activeSection==="sessions"&&<SessionBreakdown rows={rows}/>}
+          {activeSection==="q3" && <Q3Panel rows={filteredRows}/>}
+          {activeSection==="sessions" && <SessionBreakdown rows={filteredRows}/>}
+        </div>
+      );
+    }
+
+    // ─── Programme Setup ──────────────────────────────────────────────────────
+
+    function ProgrammeSetup({dayMap, setDayMap}) {
+      const theme = useTheme();
+      const [parsing, setParsing] = useState(false);
+      const [parseError, setParseError] = useState("");
+      const [dragging, setDragging] = useState(false);
+      const [dragSession, setDragSession] = useState(null);
+      const [dragFromDay, setDragFromDay] = useState(null);
+
+      const days = Object.keys(dayMap);
+      const hasMap = days.length > 0;
+
+      const handleDeckFile = async (file) => {
+        if (!file) return;
+        if (!file.name.endsWith(".pptx") && !file.name.endsWith(".ppt")) {
+          setParseError("Please upload a .pptx file."); return;
+        }
+        setParsing(true); setParseError("");
+        try {
+          const map = await parsePptxDayMap(file);
+          const nonEmpty = Object.values(map).some(d => d.length > 0);
+          if (!nonEmpty) setParseError("Couldn't auto-detect sessions from the deck. Assign them manually below.");
+          setDayMap(map);
+        } catch(e) {
+          setParseError("Failed to read the deck. Make sure it's a valid .pptx file.");
+        }
+        setParsing(false);
+      };
+
+      const onSessionDragStart = (session, fromDay) => { setDragSession(session); setDragFromDay(fromDay); };
+      const onDayDrop = (toDay) => {
+        if (!dragSession || dragFromDay === toDay) { setDragSession(null); return; }
+        setDayMap(prev => {
+          const next = {};
+          Object.entries(prev).forEach(([day, sessions]) => {
+            next[day] = day === dragFromDay
+              ? sessions.filter(s => s !== dragSession)
+              : day === toDay ? [...sessions, dragSession] : [...sessions];
+          });
+          return next;
+        });
+        setDragSession(null); setDragFromDay(null);
+      };
+
+      const addDay = () => {
+        const n = days.length + 1;
+        setDayMap(prev => ({...prev, [`Day ${n}`]: []}));
+      };
+
+      const removeDay = (day) => {
+        setDayMap(prev => { const next={...prev}; delete next[day]; return next; });
+      };
+
+      const assignedSessions = new Set(Object.values(dayMap).flat().map(s => s.toLowerCase()));
+      const unassigned = Object.keys(SESSION_TO_SIX).filter(s => !assignedSessions.has(s.toLowerCase()));
+
+      return (
+        <div>
+          <p style={{color:theme.textSub,fontSize:14,marginBottom:24}}>
+            Upload your programme deck to automatically detect which sessions run on which day, then fine-tune manually.
+            Once set up, day filter pills will appear on the Scores by Area view.
+          </p>
+
+          {/* Deck upload */}
+          <div
+            onDragOver={e=>{e.preventDefault();setDragging(true);}}
+            onDragLeave={()=>setDragging(false)}
+            onDrop={e=>{e.preventDefault();setDragging(false);handleDeckFile(e.dataTransfer.files[0]);}}
+            style={{border:`2px dashed ${dragging?theme.primary:theme.border}`,borderRadius:12,padding:"28px 24px",textAlign:"center",background:dragging?`${theme.primary}22`:theme.bgDeep,marginBottom:28,transition:"all 0.2s"}}
+          >
+            <div style={{fontSize:36,marginBottom:10}}>📑</div>
+            <p style={{color:theme.textBody,fontWeight:600,marginBottom:6}}>{hasMap?"Replace programme deck":"Upload your programme deck"}</p>
+            <p style={{color:theme.textMuted,fontSize:13,marginBottom:16}}>Drop a .pptx file — sessions will be detected and mapped to days automatically</p>
+            {parsing ? (
+              <div style={{color:theme.primary,fontWeight:600}}>Reading deck…</div>
+            ) : (
+              <label style={{background:`linear-gradient(135deg,${theme.primary},${theme.primaryDark})`,color:theme.btnText,padding:"10px 24px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:14}}>
+                Choose .pptx file
+                <input type="file" accept=".pptx,.ppt" onChange={e=>handleDeckFile(e.target.files[0])} style={{display:"none"}}/>
+              </label>
+            )}
+            {parseError&&<p style={{color:theme.secondary,marginTop:12,fontSize:13}}>{parseError}</p>}
+          </div>
+
+          {/* Day map editor */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:10}}>
+            <h3 style={{color:theme.textBody,fontSize:16}}>Session to Day Mapping</h3>
+            <button onClick={addDay} style={{background:"none",border:`1px solid ${theme.border}`,color:theme.textSub,padding:"7px 14px",borderRadius:8,cursor:"pointer",fontSize:13}}>+ Add day</button>
+          </div>
+          <p style={{color:theme.textMuted,fontSize:13,marginBottom:16}}>Drag sessions between day columns to assign them. Unassigned sessions appear below.</p>
+
+          <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(Math.max(days.length,1),4)},1fr)`,gap:12,marginBottom:24}}>
+            {days.map(day=>(
+              <div key={day}
+                onDragOver={e=>e.preventDefault()}
+                onDrop={()=>onDayDrop(day)}
+                style={{background:theme.bgCard,border:`2px dashed ${dragSession&&dragFromDay!==day?theme.primary:theme.border}`,borderRadius:12,padding:14,minHeight:140}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <div style={{color:theme.primary,fontWeight:700,fontSize:14}}>{day}</div>
+                  <button onClick={()=>removeDay(day)} title="Remove day" style={{background:"none",border:"none",color:theme.textMuted,cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>✕</button>
+                </div>
+                {(dayMap[day]||[]).length===0&&<p style={{color:theme.textMuted,fontSize:12}}>Drop sessions here</p>}
+                {(dayMap[day]||[]).map(s=>(
+                  <div key={s} draggable onDragStart={()=>onSessionDragStart(s,day)}
+                    style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,borderRadius:6,padding:"6px 10px",marginBottom:6,fontSize:12,color:theme.textSub,cursor:"grab",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span>{s}</span><span style={{color:theme.textMuted,fontSize:10}}>⠿</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+            {days.length===0&&(
+              <div style={{background:theme.bgCard,border:`1px dashed ${theme.border}`,borderRadius:12,padding:24,textAlign:"center",color:theme.textMuted,fontSize:13,gridColumn:"1/-1"}}>
+                Upload a deck above or click "+ Add day" to start building the day map manually.
+              </div>
+            )}
+          </div>
+
+          {/* Unassigned sessions */}
+          {unassigned.length>0&&(
+            <Card>
+              <h4 style={{color:theme.textMuted,fontSize:12,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Unassigned sessions — drag to a day column above</h4>
+              <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                {unassigned.map(s=>(
+                  <div key={s} draggable onDragStart={()=>onSessionDragStart(s,"__unassigned__")}
+                    style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,borderRadius:6,padding:"6px 12px",fontSize:12,color:"#ccc",cursor:"grab",display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{color:theme.textMuted,fontSize:10}}>⠿</span>{s}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
       );
     }
@@ -497,7 +2024,7 @@
     const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
     const YEARS=Array.from({length:10},(_,i)=>(new Date().getFullYear()-5+i).toString());
 
-    function CohortManager({cohorts,setCohorts}) {
+    function CohortManager({cohorts,setCohorts,dayMap}) {
       const theme=useTheme();
       const [pending,setPending]=useState({client:"",cohort:"",month:"",year:"",rows:[],fileName:""});
       const [addError,setAddError]=useState("");
@@ -653,7 +2180,7 @@
                 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,padding:"10px 16px",background:theme.bgCard,borderRadius:10,border:`1px solid ${theme.border}`}}>
                   <div style={{width:8,height:8,borderRadius:"50%",background:theme.primary}}/>
                   <div>
-                    <span style={{color:"#fff",fontWeight:700}}>{activeCohort.client}</span>
+                    <span style={{color:theme.textBody,fontWeight:700}}>{activeCohort.client}</span>
                     <span style={{color:theme.textMuted,marginLeft:8}}>·</span>
                     <span style={{color:theme.textSub,marginLeft:8}}>{activeCohort.cohort}</span>
                     <span style={{color:theme.textMuted,marginLeft:8}}>·</span>
@@ -672,8 +2199,8 @@
               )}
 
               {/* Analysis */}
-              {!compareMode&&activeCohort&&<AnalysisView rows={activeCohort.rows} clientName={activeCohort.client}/>}
-              {compareMode&&<AnalysisView rows={allRows} clientName={cohorts.map(c=>c.client).filter((v,i,a)=>a.indexOf(v)===i).join(" & ")}/>}
+              {!compareMode&&activeCohort&&<AnalysisView rows={activeCohort.rows} clientName={activeCohort.client} dayMap={dayMap}/>}
+              {compareMode&&<AnalysisView rows={allRows} clientName={cohorts.map(c=>c.client).filter((v,i,a)=>a.indexOf(v)===i).join(" & ")} dayMap={dayMap}/>}
             </>
           )}
         </div>
@@ -682,77 +2209,273 @@
 
     // ─── Branding Panel ───────────────────────────────────────────────────────
 
+    const COLOUR_GROUPS = [
+      {
+        label: "Brand & Accent",
+        keys: [
+          { key:"primary",     label:"Primary accent (buttons, active tabs)" },
+          { key:"primaryDark", label:"Primary dark (button hover, gradients)" },
+        ]
+      },
+      {
+        label: "Score Colours",
+        keys: [
+          { key:"strong",     label:"Strong (7–10)" },
+          { key:"developing", label:"Developing (4–6)" },
+          { key:"secondary",  label:"Emerging (1–3)" },
+        ]
+      },
+      {
+        label: "Backgrounds",
+        keys: [
+          { key:"bgMain",  label:"Page background" },
+          { key:"bgCard",  label:"Card & panel background" },
+          { key:"navBg",   label:"Navigation bar background" },
+          { key:"bgDeep",  label:"Recessed areas (upload zones, tab bars)" },
+          { key:"bgTrack", label:"Score bar track" },
+          { key:"bgHover", label:"Hover state" },
+        ]
+      },
+      {
+        label: "Borders",
+        keys: [
+          { key:"border", label:"Default border" },
+        ]
+      },
+      {
+        label: "Text",
+        keys: [
+          { key:"textBody",  label:"Primary body text" },
+          { key:"textSub",   label:"Secondary text" },
+          { key:"textMuted", label:"De-emphasised / label text" },
+        ]
+      },
+      {
+        label: "Buttons",
+        keys: [
+          { key:"btnText",    label:"Primary button text" },
+          { key:"btnSecBg",   label:"Secondary button background" },
+          { key:"btnSecText", label:"Secondary button text" },
+        ]
+      },
+    ];
+
     function BrandingPanel({theme,onThemeChange,onClose}) {
       const [extracted,setExtracted]=useState([]);
       const [paletteImg,setPaletteImg]=useState(null);
       const [dragging,setDragging]=useState(false);
+      const [selectedRole,setSelectedRole]=useState("primary");
+      const [openGroup,setOpenGroup]=useState(null);
+
+      // Auto-assign extracted colours to theme slots based on their visual properties
+      const autoAssignTheme=(colours,currentTheme)=>{
+        if(!colours||colours.length===0) return currentTheme;
+
+        // Compute properties for each colour
+        const analysed=colours.map(hex=>{
+          const [r,g,b]=hexToRgb(hex);
+          const max=Math.max(r,g,b), min=Math.min(r,g,b);
+          const lightness=(max+min)/510;                      // 0-1
+          const saturation=max===0?0:(max-min)/max;          // 0-1
+          const chroma=max-min;                              // 0-255
+          // Hue
+          let hue=0;
+          if(chroma>0){
+            if(max===r) hue=((g-b)/chroma)%6;
+            else if(max===g) hue=(b-r)/chroma+2;
+            else hue=(r-g)/chroma+4;
+            hue=Math.round(hue*60); if(hue<0) hue+=360;
+          }
+          return {hex,r,g,b,lightness,saturation,chroma,hue};
+        });
+
+        // Sort helpers
+        const byLight=(...arr)=>[...arr].sort((a,b)=>a.lightness-b.lightness);
+        const bySat=(...arr)=>[...arr].sort((a,b)=>b.saturation-a.saturation);
+
+        // Find the most vibrant / punchy colour → primary accent
+        const vibrant=bySat(...analysed).find(c=>c.saturation>0.3&&c.lightness>0.2&&c.lightness<0.75)||analysed[0];
+
+        // Find darkest colour → bgMain
+        const darkest=byLight(...analysed)[0];
+
+        // Find second-darkest for cards
+        const secondDark=byLight(...analysed)[1]||darkest;
+
+        // Find lightest colour → textBody (should contrast with dark bg)
+        const lightest=byLight(...analysed)[analysed.length-1];
+
+        // Find a mid-dark for bgDeep (darker than card, lighter than main)
+        const midDark=byLight(...analysed).find(c=>c.lightness<darkest.lightness+0.15&&c.hex!==darkest.hex)||secondDark;
+
+        // Find a secondary accent (second most vibrant, different hue from primary)
+        const secondAccent=bySat(...analysed).find(c=>
+          c.hex!==vibrant.hex&&
+          Math.abs(c.hue-vibrant.hue)>30&&
+          c.saturation>0.2
+        )||vibrant;
+
+        // Build border: slightly lighter than bgCard
+        const borderHex=`#${Math.min(255,secondDark.r+30).toString(16).padStart(2,"0")}${Math.min(255,secondDark.g+30).toString(16).padStart(2,"0")}${Math.min(255,secondDark.b+30).toString(16).padStart(2,"0")}`;
+
+        // Build muted text: blend between primary and light
+        const mutedHex=`#${Math.round((vibrant.r+lightest.r*2)/3).toString(16).padStart(2,"0")}${Math.round((vibrant.g+lightest.g*2)/3).toString(16).padStart(2,"0")}${Math.round((vibrant.b+lightest.b*2)/3).toString(16).padStart(2,"0")}`;
+
+        return {
+          ...currentTheme,
+          primary:     vibrant.hex,
+          primaryDark: darken(vibrant.hex,45),
+          bgMain:      darkest.hex,
+          bgCard:      secondDark.hex,
+          bgDeep:      midDark.hex,
+          bgTrack:     darken(secondDark.hex,-15),
+          bgHover:     darken(secondDark.hex,-25),
+          navBg:       secondDark.hex,
+          border:      borderHex,
+          textBody:    lightest.hex,
+          textSub:     darken(lightest.hex,-20),
+          textMuted:   mutedHex,
+          btnText:     lightest.hex,
+          btnSecBg:    secondDark.hex,
+          btnSecText:  lightest.hex,
+        };
+      };
 
       const handlePaletteFile=(file)=>{
         if (!file||!file.type.startsWith("image/")) return;
         const url=URL.createObjectURL(file); setPaletteImg(url);
         const img=new Image();
-        img.onload=()=>setExtracted(extractColours(img));
+        img.onload=()=>{
+          const colours=extractColours(img,12);
+          setExtracted(colours);
+          // Auto-apply theme based on extracted colours
+          const newTheme=autoAssignTheme(colours,theme);
+          onThemeChange(newTheme);
+        };
         img.src=url;
       };
 
-      const SwatchRow=({label,roleKey,size=32})=>(
-        <div style={{marginBottom:16}}>
-          <p style={{color:theme.textSub,fontSize:12,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>{label}</p>
-          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-            {extracted.map((hex,i)=>(
-              <div key={i} title={hex} style={{width:size,height:size,borderRadius:6,background:hex,cursor:"pointer",border:theme[roleKey]===hex?"3px solid #fff":"2px solid transparent",transition:"transform 0.1s",boxShadow:"0 2px 8px rgba(0,0,0,0.4)"}}
-                onClick={()=>{ if(roleKey==="primary") onThemeChange({...theme,primary:hex,primaryDark:darken(hex,50)}); else onThemeChange({...theme,[roleKey]:hex}); }}
-                onMouseEnter={e=>e.currentTarget.style.transform="scale(1.1)"}
-                onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}/>
-            ))}
+      const applyColour=(hex,key)=>{
+        if(key==="primary") onThemeChange({...theme,primary:hex,primaryDark:darken(hex,50)});
+        else onThemeChange({...theme,[key]:hex});
+      };
+
+      const Section=({label,children})=>(
+        <div style={{marginBottom:4}}>
+          <button onClick={()=>setOpenGroup(g=>g===label?null:label)} style={{
+            width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",
+            background:"none",border:"none",padding:"8px 0",cursor:"pointer",
+            color:theme.textSub,fontSize:12,textTransform:"uppercase",letterSpacing:1,fontWeight:700,
+          }}>
+            {label}
+            <span style={{fontSize:10,color:theme.textMuted}}>{openGroup===label?"▲":"▼"}</span>
+          </button>
+          {openGroup===label&&<div style={{paddingBottom:12}}>{children}</div>}
+          <div style={{height:1,background:theme.border,marginBottom:4}}/>
+        </div>
+      );
+
+      const ColourRow=({label,k})=>(
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+          <div style={{flex:1}}>
+            <div style={{color:theme.textBody,fontSize:13}}>{label}</div>
+            <div style={{color:theme.textMuted,fontSize:11}}>{theme[k]}</div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            {extracted.length>0&&(
+              <button
+                onClick={()=>setSelectedRole(k)}
+                title="Apply extracted colour to this slot"
+                style={{background:selectedRole===k?theme.primary:theme.btnSecBg,border:`1px solid ${theme.border}`,color:selectedRole===k?theme.btnText:theme.textMuted,padding:"3px 8px",borderRadius:5,cursor:"pointer",fontSize:11}}>
+                {selectedRole===k?"→ applying":"apply"}
+              </button>
+            )}
+            <input type="color" value={theme[k]}
+              onChange={e=>applyColour(e.target.value,k)}
+              style={{width:36,height:36,borderRadius:6,cursor:"pointer",padding:2,background:"none",border:`2px solid ${theme.border}`}}/>
           </div>
         </div>
       );
 
       return (
-        <div style={{position:"fixed",top:0,right:0,bottom:0,width:360,background:theme.bgCard,borderLeft:`1px solid ${theme.border}`,zIndex:1000,overflowY:"auto",padding:24,boxShadow:"-8px 0 32px rgba(0,0,0,0.5)"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
-            <h2 style={{color:"#fff",fontSize:18}}>Branding</h2>
+        <div style={{position:"fixed",top:0,right:0,bottom:0,width:380,background:theme.bgCard,borderLeft:`1px solid ${theme.border}`,zIndex:1000,overflowY:"auto",padding:24,boxShadow:"-8px 0 32px rgba(0,0,0,0.6)"}}>
+
+          {/* Header */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+            <h2 style={{color:theme.textBody,fontSize:18,fontWeight:800}}>🎨 Branding</h2>
             <button onClick={onClose} style={{background:"none",border:"none",color:theme.textMuted,fontSize:22,cursor:"pointer"}}>✕</button>
           </div>
-          <div onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);handlePaletteFile(e.dataTransfer.files[0]);}}
-            style={{border:`2px dashed ${dragging?theme.primary:theme.border}`,borderRadius:12,padding:"20px 16px",textAlign:"center",background:dragging?`${theme.primary}22`:theme.bgDeep,marginBottom:20,transition:"all 0.2s"}}>
-            {paletteImg?<img src={paletteImg} alt="palette" style={{maxWidth:"100%",maxHeight:120,borderRadius:8,marginBottom:10}}/>:<div style={{fontSize:32,marginBottom:8}}>🎨</div>}
-            <p style={{color:theme.textMuted,fontSize:13,marginBottom:12}}>{paletteImg?"Upload a different palette":"Upload a colour palette image"}</p>
-            <label style={{background:theme.primary,color:"#fff",padding:"8px 18px",borderRadius:7,cursor:"pointer",fontWeight:600,fontSize:13}}>
+
+          {/* Preset themes */}
+          <div style={{marginBottom:20}}>
+            <p style={{color:theme.textMuted,fontSize:11,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Presets</p>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>onThemeChange(DEFAULT_THEME)} style={{flex:1,padding:"10px",borderRadius:8,border:`2px solid ${theme.primary}`,background:theme.bgDeep,color:theme.primary,cursor:"pointer",fontSize:13,fontWeight:700}}>
+                🐙 Kraken Dark
+              </button>
+              <button onClick={()=>onThemeChange(LIGHT_THEME)} style={{flex:1,padding:"10px",borderRadius:8,border:`2px solid ${theme.border}`,background:"#F5ECE2",color:"#29172E",cursor:"pointer",fontSize:13,fontWeight:700}}>
+                ☀️ Kraken Light
+              </button>
+            </div>
+          </div>
+
+          {/* Palette image upload */}
+          <div
+            onDragOver={e=>{e.preventDefault();setDragging(true);}}
+            onDragLeave={()=>setDragging(false)}
+            onDrop={e=>{e.preventDefault();setDragging(false);handlePaletteFile(e.dataTransfer.files[0]);}}
+            style={{border:`2px dashed ${dragging?theme.primary:theme.border}`,borderRadius:12,padding:"16px",textAlign:"center",background:dragging?`${theme.primary}22`:theme.bgDeep,marginBottom:16,transition:"all 0.2s"}}>
+            {paletteImg
+              ? <img src={paletteImg} alt="palette" style={{maxWidth:"100%",maxHeight:80,borderRadius:8,marginBottom:8,display:"block",margin:"0 auto 8px"}}/>
+              : <div style={{fontSize:28,marginBottom:6}}>🎨</div>
+            }
+            <p style={{color:theme.textMuted,fontSize:12,marginBottom:10}}>{paletteImg?"Replace palette — theme will update automatically":"Upload a brand colour palette — theme auto-applies instantly"}</p>
+            <label style={{background:theme.primary,color:theme.btnText,padding:"7px 16px",borderRadius:7,cursor:"pointer",fontWeight:600,fontSize:13}}>
               Choose image<input type="file" accept="image/*" onChange={e=>handlePaletteFile(e.target.files[0])} style={{display:"none"}}/>
             </label>
           </div>
+
+          {/* Extracted swatches with role selector */}
           {extracted.length>0&&(
-            <div style={{marginBottom:24}}>
-              <SwatchRow label="Primary accent" roleKey="primary" size={44}/>
-              <SwatchRow label="Strong score (7–10)" roleKey="strong"/>
-              <SwatchRow label="Developing score (4–6)" roleKey="developing"/>
-              <SwatchRow label="Emerging score (1–3)" roleKey="secondary"/>
+            <div style={{marginBottom:20}}>
+              <p style={{color:theme.textMuted,fontSize:11,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>
+                Extracted colours — select a slot above then click a swatch
+              </p>
+              <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
+                {extracted.map((hex,i)=>(
+                  <div key={i} title={hex}
+                    style={{width:40,height:40,borderRadius:8,background:hex,cursor:"pointer",
+                      border:Object.values(theme).includes(hex)?"3px solid #fff":"2px solid transparent",
+                      boxShadow:"0 2px 8px rgba(0,0,0,0.4)",transition:"transform 0.1s"}}
+                    onClick={()=>applyColour(hex,selectedRole)}
+                    onMouseEnter={e=>e.currentTarget.style.transform="scale(1.12)"}
+                    onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}
+                  />
+                ))}
+              </div>
+              <p style={{color:theme.textMuted,fontSize:11}}>
+                Applying to: <strong style={{color:theme.primary}}>{COLOUR_GROUPS.flatMap(g=>g.keys).find(k=>k.key===selectedRole)?.label||selectedRole}</strong>
+                {" — "}open a section below and click "apply" next to any colour slot to change which one.
+              </p>
             </div>
           )}
-          <div style={{marginBottom:24}}>
-            <p style={{color:theme.textSub,fontSize:12,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Manual colour pickers</p>
-            {[{label:"Primary accent",key:"primary"},{label:"Strong score (7–10)",key:"strong"},{label:"Developing score (4–6)",key:"developing"},{label:"Emerging score (1–3)",key:"secondary"}].map(({label,key})=>(
-              <div key={key} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-                <span style={{color:"#ccc",fontSize:14}}>{label}</span>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{color:theme.textMuted,fontSize:12}}>{theme[key]}</span>
-                  <input type="color" value={theme[key]} onChange={e=>{ const val=e.target.value; if(key==="primary") onThemeChange({...theme,primary:val,primaryDark:darken(val,50)}); else onThemeChange({...theme,[key]:val}); }} style={{width:36,height:36,borderRadius:6,cursor:"pointer",padding:2,background:"none",border:"none"}}/>
-                </div>
-              </div>
+
+          {/* Full colour controls grouped by section */}
+          <div style={{marginBottom:20}}>
+            {COLOUR_GROUPS.map(({label,keys})=>(
+              <Section key={label} label={label}>
+                {keys.map(({key,label})=><ColourRow key={key} k={key} label={label}/>)}
+              </Section>
             ))}
           </div>
-          <button onClick={()=>onThemeChange(DEFAULT_THEME)} style={{width:"100%",padding:"10px",borderRadius:8,border:`1px solid ${theme.border}`,background:"none",color:theme.textMuted,cursor:"pointer",fontSize:14}}>
-            Reset to Kraken defaults
-          </button>
+
         </div>
       );
     }
 
     // ─── Single CSV Upload ────────────────────────────────────────────────────
 
-    function SingleUpload({rows,setRows,fileName,setFileName,error,setError}) {
+    function SingleUpload({rows,setRows,fileName,setFileName,error,setError,dayMap}) {
       const theme=useTheme();
       const [dragging,setDragging]=useState(false);
       const [clientName,setClientName]=useState("");
@@ -774,7 +2497,7 @@
           <div style={{fontSize:48,marginBottom:16}}>📊</div>
           <h2 style={{marginBottom:8}}>Upload your CSV export</h2>
           <p style={{color:theme.textMuted,marginBottom:24,fontSize:14}}>Export from Google Forms, Typeform, or any questionnaire tool and drop it here</p>
-          <label style={{background:`linear-gradient(135deg,${theme.primary},${theme.primaryDark})`,color:"#fff",padding:"12px 28px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:15}}>
+          <label style={{background:`linear-gradient(135deg,${theme.primary},${theme.primaryDark})`,color:theme.btnText,padding:"12px 28px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:15}}>
             Choose CSV file<input type="file" accept=".csv" onChange={e=>handleFile(e.target.files[0])} style={{display:"none"}}/>
           </label>
           {error&&<p style={{color:theme.secondary,marginTop:16}}>{error}</p>}
@@ -791,7 +2514,7 @@
               ))}
               <div style={{background:theme.bgCard,border:`1px solid ${theme.border}`,borderRadius:8,padding:"8px 16px"}}>
                 <div style={{color:theme.textMuted,fontSize:12}}>File</div>
-                <div style={{color:"#fff",fontWeight:600,fontSize:14}}>{fileName}</div>
+                <div style={{color:theme.textBody,fontWeight:600,fontSize:14}}>{fileName}</div>
               </div>
               {/* Client name prompt */}
               <div style={{background:clientName?theme.bgCard:`${theme.secondary}18`,border:`1px solid ${clientName?theme.border:theme.secondary}`,borderRadius:8,padding:"8px 16px",display:"flex",alignItems:"center",gap:10}}>
@@ -806,7 +2529,7 @@
                       onBlur={()=>setEditingClient(false)}
                       onKeyDown={e=>{ if(e.key==="Enter"||e.key==="Escape") setEditingClient(false); }}
                       placeholder="e.g. TTE UK"
-                      style={{background:"none",border:"none",borderBottom:`1px solid ${theme.primary}`,color:"#fff",fontSize:14,fontWeight:600,outline:"none",width:140,padding:"2px 0"}}
+                      style={{background:"none",border:"none",borderBottom:`1px solid ${theme.primary}`,color:theme.textBody,fontSize:14,fontWeight:600,outline:"none",width:140,padding:"2px 0"}}
                     />
                   ) : (
                     <div
@@ -824,16 +2547,46 @@
               Upload new CSV<input type="file" accept=".csv" onChange={e=>{setRows([]);handleFile(e.target.files[0]);}} style={{display:"none"}}/>
             </label>
           </div>
-          <AnalysisView rows={rows} clientName={clientName}/>
+          <AnalysisView rows={rows} clientName={clientName} dayMap={dayMap}/>
         </>
       );
+    }
+
+    // ─── PDF export ───────────────────────────────────────────────────────────
+
+    function downloadPdf(elementId, filename) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      const opt = {
+        margin: [8, 8, 8, 8],
+        filename: filename,
+        image: { type: "jpeg", quality: 0.97 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#29172E" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      };
+      html2pdf().set(opt).from(el).save();
+    }
+
+    function downloadAllPdf(filename) {
+      const el = document.getElementById("app-content");
+      if (!el) return;
+      const opt = {
+        margin: [8, 8, 8, 8],
+        filename: filename,
+        image: { type: "jpeg", quality: 0.97 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#29172E" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      };
+      html2pdf().set(opt).from(el).save();
     }
 
     // ─── Password gate ────────────────────────────────────────────────────────
     // Change the value below to set your password.
     const APP_PASSWORD = "ELDP manifesto";
 
-    function PasswordGate({onUnlock}) {
+    function PasswordGate({onUnlock, lang}) {
       const [input,setInput]=useState("");
       const [shake,setShake]=useState(false);
       const [error,setError]=useState("");
@@ -857,19 +2610,19 @@
             animation:shake?"shake 0.4s ease":"none",
           }}>
             <div style={{width:56,height:56,background:"linear-gradient(135deg,#b026ff,#ff4d6d)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,margin:"0 auto 20px"}}>✦</div>
-            <h1 style={{color:"#fff",fontSize:20,fontWeight:800,marginBottom:6}}>TTE UK Leadership Analyser</h1>
+            <h1 style={{color:"#fff",fontSize:20,fontWeight:800,marginBottom:6}}>Leadership Analyser</h1>
             <p style={{color:"#888",fontSize:13,marginBottom:32}}>Kraken · Session Response Summary Tool</p>
             <input
               type="password"
-              placeholder="Enter password"
+              placeholder={T[lang]?.enterPassword||T.en.enterPassword}
               value={input}
               onChange={e=>{setInput(e.target.value);setError("");}}
               onKeyDown={e=>e.key==="Enter"&&attempt()}
               style={{width:"100%",padding:"12px 16px",borderRadius:8,border:`1px solid ${error?"#ff4d6d":"#2a2a5a"}`,background:"#0a0a1a",color:"#fff",fontSize:15,outline:"none",marginBottom:12,fontFamily:"inherit",textAlign:"center",letterSpacing:3}}
             />
-            {error&&<p style={{color:"#ff4d6d",fontSize:13,marginBottom:12}}>{error}</p>}
-            <button onClick={attempt} style={{width:"100%",padding:"12px",background:"linear-gradient(135deg,#b026ff,#8000cc)",border:"none",borderRadius:8,color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer"}}>
-              Enter
+            {error&&<p style={{color:"#ff4d6d",fontSize:13,marginBottom:12}}>{T[lang]?.incorrectPassword||T.en.incorrectPassword}</p>}
+            <button onClick={attempt} style={{width:"100%",padding:"12px",background:"linear-gradient(135deg,#DE1C80,#C82C84)",border:"none",borderRadius:8,color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer"}}>
+              {T[lang]?.enter||T.en.enter}
             </button>
           </div>
           <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}`}</style>
@@ -886,43 +2639,76 @@
       const [fileName,setFileName]=useState("");
       const [error,setError]=useState("");
       const [cohorts,setCohorts]=useState([]);
+      const [dayMap,setDayMap]=useState({});
       const [theme,setTheme]=useState(DEFAULT_THEME);
       const [showBranding,setShowBranding]=useState(false);
+      const [lang,setLang]=useState("en");
 
-      if (!unlocked) return <PasswordGate onUnlock={()=>setUnlocked(true)}/>;
+      if (!unlocked) return (
+        <LangContext.Provider value={lang}>
+          <div style={{position:"relative"}}>
+            <div style={{position:"fixed",top:12,right:12,zIndex:9999}}>
+              <select value={lang} onChange={e=>setLang(e.target.value)} style={{background:"#29172E",border:"1px solid #6b3f72",color:"#fff",borderRadius:6,padding:"5px 10px",fontSize:13,cursor:"pointer"}}>
+                {LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.label}</option>)}
+              </select>
+            </div>
+            <PasswordGate onUnlock={()=>setUnlocked(true)} lang={lang}/>
+          </div>
+        </LangContext.Provider>
+      );
+
+      const tr = (key) => T[lang]?.[key] ?? T.en[key] ?? key;
 
       return (
+        <LangContext.Provider value={lang}>
         <ThemeContext.Provider value={theme}>
-          <div style={{minHeight:"100vh",background:theme.bgMain,fontFamily:"'Segoe UI',system-ui,sans-serif",color:"#fff"}}>
+          <div style={{minHeight:"100vh",background:theme.bgMain,fontFamily:"'Montserrat','Segoe UI',system-ui,sans-serif",color:"#fff"}}>
 
             {/* Header */}
             <div style={{background:`linear-gradient(135deg,${theme.bgCard},${darken(theme.bgMain,-10)})`,borderBottom:`1px solid ${theme.border}`,padding:"20px 32px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div style={{display:"flex",alignItems:"center",gap:16}}>
                 <div style={{width:40,height:40,background:`linear-gradient(135deg,${theme.primary},${theme.secondary})`,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>✦</div>
                 <div>
-                  <h1 style={{fontSize:20,fontWeight:800,letterSpacing:-0.5}}>TTE UK Leadership Analyser</h1>
-                  <p style={{color:theme.textMuted,fontSize:13}}>Kraken · Session Response Summary Tool</p>
+                  <h1 style={{fontSize:20,fontWeight:800,letterSpacing:-0.5}}>{tr("appTitle")}</h1>
+                  <p style={{color:theme.textMuted,fontSize:13}}>{tr("appSubtitle")}</p>
                 </div>
               </div>
-              <button onClick={()=>setShowBranding(v=>!v)} style={{background:showBranding?theme.primary:theme.bgDeep,border:`1px solid ${theme.border}`,color:showBranding?"#fff":theme.textSub,padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:600}}>
-                🎨 Branding
-              </button>
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                {/* Language selector */}
+                <select value={lang} onChange={e=>setLang(e.target.value)} style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,color:theme.textSub,borderRadius:8,padding:"8px 12px",fontSize:13,cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>
+                  {LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.label}</option>)}
+                </select>
+                <button onClick={()=>downloadPdf("app-content","kraken-leadership-current-view.pdf")} style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,color:theme.textSub,padding:"8px 12px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>
+                  {tr("thisPage")}
+                </button>
+                <button onClick={()=>downloadAllPdf("kraken-leadership-full-report.pdf")} style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,color:theme.textSub,padding:"8px 12px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>
+                  {tr("fullReport")}
+                </button>
+                <button onClick={()=>setShowBranding(v=>!v)} style={{background:showBranding?theme.primary:theme.bgDeep,border:`1px solid ${theme.border}`,color:showBranding?"#fff":theme.textSub,padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:600}}>
+                  🎨 {tr("branding")}
+                </button>
+              </div>
             </div>
 
             {/* Top-level tabs */}
-            <div style={{borderBottom:`1px solid ${theme.border}`,background:theme.bgCard,padding:"0 32px"}}>
+            <div style={{borderBottom:`1px solid ${theme.border}`,background:theme.navBg,padding:"0 32px"}}>
               <div style={{display:"flex",gap:0,maxWidth:960,margin:"0 auto"}}>
-                {[{id:"single",label:"Single CSV"},{id:"cohorts",label:`Multiple Cohorts${cohorts.length>0?` (${cohorts.length})`:""}`}].map(t=>(
-                  <button key={t.id} onClick={()=>setMainTab(t.id)} style={{padding:"14px 24px",border:"none",borderBottom:`3px solid ${mainTab===t.id?theme.primary:"transparent"}`,background:"none",color:mainTab===t.id?theme.primary:theme.textMuted,cursor:"pointer",fontWeight:700,fontSize:14,transition:"all 0.2s"}}>
-                    {t.label}
+                {[
+                  {id:"single",label:tr("singleCsv")},
+                  {id:"cohorts",label:`${tr("multipleCohorts")}${cohorts.length>0?` (${cohorts.length})`:""}`},
+                  {id:"programme",label:`${tr("programmeSetup")}${Object.keys(dayMap).length>0?" ✓":""}`},
+                ].map(tb=>(
+                  <button key={tb.id} onClick={()=>setMainTab(tb.id)} style={{padding:"14px 24px",border:"none",borderBottom:`3px solid ${mainTab===tb.id?theme.primary:"transparent"}`,background:"none",color:mainTab===tb.id?theme.primary:theme.textMuted,cursor:"pointer",fontWeight:700,fontSize:14,transition:"all 0.2s"}}>
+                    {tb.label}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div style={{maxWidth:960,margin:"0 auto",padding:"28px 24px"}}>
-              {mainTab==="single"&&<SingleUpload rows={rows} setRows={setRows} fileName={fileName} setFileName={setFileName} error={error} setError={setError}/>}
-              {mainTab==="cohorts"&&<CohortManager cohorts={cohorts} setCohorts={setCohorts}/>}
+            <div id="app-content" style={{maxWidth:960,margin:"0 auto",padding:"28px 24px"}}>
+              {mainTab==="single"&&<SingleUpload rows={rows} setRows={setRows} fileName={fileName} setFileName={setFileName} error={error} setError={setError} dayMap={dayMap}/>}
+              {mainTab==="cohorts"&&<CohortManager cohorts={cohorts} setCohorts={setCohorts} dayMap={dayMap}/>}
+              {mainTab==="programme"&&<ProgrammeSetup dayMap={dayMap} setDayMap={setDayMap}/>}
             </div>
 
             {showBranding&&(
@@ -933,6 +2719,7 @@
             )}
           </div>
         </ThemeContext.Provider>
+        </LangContext.Provider>
       );
     }
 
