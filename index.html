@@ -9,7 +9,6 @@
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -46,7 +45,7 @@
   </script>
 
   <script type="text/babel">
-    const { useState, useCallback, useContext, createContext, useRef, useEffect } = React;
+    const { useState, useCallback, useContext, createContext, useEffect } = React;
 
     // ─── Theme ───────────────────────────────────────────────────────────────
 
@@ -1271,46 +1270,77 @@
         const cols=[]; let cur="",inQ=false;
         for (const ch of lines[i]) { if(ch==='"'){inQ=!inQ;} else if(ch===','&&!inQ){cols.push(cur.trim());cur="";} else{cur+=ch;} }
         cols.push(cur.trim());
-        if (cols.length>=5) rows.push({session:cols[1]?.trim()||"",q1:parseFloat(cols[2])||null,q2:parseFloat(cols[3])||null,q3:cols[4]?.trim()||""});
+        if (cols.length>=5) rows.push({
+          session: cols[1]?.trim()||"",
+          q1: parseFloat(cols[2])||null,
+          q2: parseFloat(cols[3])||null,
+          q2text: isNaN(parseFloat(cols[3])) ? cols[3]?.trim()||"" : "", // qualitative if not a number
+          q3: cols[4]?.trim()||"",
+        });
       }
       return rows.filter(r=>r.session);
     }
 
     // ─── Mappings ─────────────────────────────────────────────────────────────
+    // Loaded from mappings.json at startup — update that file to change mappings.
+    // Fallback hardcoded values used if the file can't be fetched.
 
-    const SIX_AREAS=["Purposeful Vision","Psychological Safety","Purposeful Technology","Disciplined Freedom","Adaptive Leadership","Radical Interdependence"];
-    const COMPETENCIES=["Psychological Safety","Mastery of Self","Empowerment","Systems Thinking","Agility","Turning Points","Rituals","Storytelling"];
-
-    const SESSION_TO_SIX={
-      "a brief history of kraken human design":["Purposeful Vision","Purposeful Technology","Adaptive Leadership"],
-      "the emotional landscape of transformation":["Purposeful Vision","Psychological Safety","Adaptive Leadership"],
+    const FALLBACK_SIX_AREAS=["Purposeful Vision","Psychological Safety","Purposeful Technology","Disciplined Freedom","Adaptive Leadership","Radical Interdependence"];
+    const FALLBACK_COMPETENCIES=["Psychological Safety","Mastery of Self","Empowerment","Systems Thinking","Agility","Turning Points","Rituals","Storytelling"];
+    const FALLBACK_SESSION_TO_SIX={
+      "a brief history of kraken human design":["Purposeful Vision","Adaptive Leadership"],
+      "the emotional landscape of transformation":["Psychological Safety","Adaptive Leadership"],
       "power dynamics (ego/drama triangle)":["Psychological Safety","Disciplined Freedom","Adaptive Leadership"],
-      "navigating complexity (turning points)":["Purposeful Vision","Psychological Safety","Purposeful Technology","Disciplined Freedom","Adaptive Leadership"],
+      "navigating complexity (turning points)":["Purposeful Vision","Psychological Safety","Disciplined Freedom","Adaptive Leadership","Radical Interdependence"],
       "psychological safety":["Psychological Safety","Disciplined Freedom","Adaptive Leadership","Radical Interdependence"],
-      "empowering others (vmost/multipliers)":["Psychological Safety","Disciplined Freedom","Adaptive Leadership"],
+      "empowering others (vmost/multipliers)":["Disciplined Freedom","Adaptive Leadership","Radical Interdependence"],
       "customer centricity":["Purposeful Vision","Purposeful Technology","Radical Interdependence"],
       "agile leadership and agile governance":["Purposeful Technology","Disciplined Freedom","Adaptive Leadership","Radical Interdependence"],
       "risk mindset":["Psychological Safety","Disciplined Freedom","Adaptive Leadership","Radical Interdependence"],
       "problem solving & course correcting":["Purposeful Technology","Adaptive Leadership"],
       "narrative leadership: storytelling for a change":["Purposeful Vision","Adaptive Leadership","Radical Interdependence"],
-      "conscious leadership":["Purposeful Vision","Disciplined Freedom","Adaptive Leadership"],
-      "rituals":["Adaptive Leadership","Radical Interdependence"],
+      "conscious leadership":["Purposeful Vision","Adaptive Leadership"],
+      "rituals":["Disciplined Freedom","Adaptive Leadership","Radical Interdependence"],
     };
-    const SESSION_TO_COMP={
+    const FALLBACK_SESSION_TO_COMP={
       "a brief history of kraken human design":[],
       "the emotional landscape of transformation":["Psychological Safety","Mastery of Self"],
       "power dynamics (ego/drama triangle)":["Psychological Safety","Mastery of Self"],
-      "navigating complexity (turning points)":["Turning Points"],
+      "navigating complexity (turning points)":["Systems Thinking","Agility","Turning Points"],
       "psychological safety":["Psychological Safety"],
       "empowering others (vmost/multipliers)":["Empowerment"],
       "customer centricity":[],
-      "agile leadership and agile governance":["Agility"],
-      "risk mindset":[],
+      "agile leadership and agile governance":["Empowerment","Systems Thinking","Agility"],
+      "risk mindset":["Systems Thinking","Agility"],
       "problem solving & course correcting":["Systems Thinking"],
       "narrative leadership: storytelling for a change":["Storytelling"],
-      "conscious leadership":["Mastery of Self"],
+      "conscious leadership":["Mastery of Self","Rituals"],
       "rituals":["Rituals"],
     };
+
+    // Live values — start with fallbacks, overwritten once mappings.json loads
+    let SIX_AREAS      = FALLBACK_SIX_AREAS;
+    let COMPETENCIES   = FALLBACK_COMPETENCIES;
+    let SESSION_TO_SIX = FALLBACK_SESSION_TO_SIX;
+    let SESSION_TO_COMP= FALLBACK_SESSION_TO_COMP;
+
+    // Fetch mappings.json from the same origin
+    const MappingsContext = createContext(false); // true once loaded
+    async function loadMappings(setLoaded) {
+      try {
+        const res = await fetch("mappings.json");
+        if (!res.ok) throw new Error("not found");
+        const data = await res.json();
+        if (data.sixAreas)      SIX_AREAS       = data.sixAreas;
+        if (data.competencies)  COMPETENCIES     = data.competencies;
+        if (data.sessionToSix)  SESSION_TO_SIX   = data.sessionToSix;
+        if (data.sessionToComp) SESSION_TO_COMP  = data.sessionToComp;
+      } catch(e) {
+        // Silently fall back to hardcoded values — app still works
+      } finally {
+        setLoaded(true);
+      }
+    }
 
     function avgScores(rows,keys,mapping) {
       const out={};
@@ -1412,11 +1442,24 @@
 
     // ─── Analysis components ──────────────────────────────────────────────────
 
-    function AreaCard({name,data,clientName}) {
+    const SCORE_VIEWS = [
+      { id:"current_vs_likelihood", label:"Current vs feeling to change" },
+      { id:"current_and_next",      label:"Current & next step" },
+    ];
+
+    // Get Q2 qualitative responses for sessions that map to a given area
+    function getQ2TextForArea(areaName, mapping, rows) {
+      const relevant = rows.filter(r => (mapping[r.session.toLowerCase()]||[]).includes(areaName));
+      return relevant.map(r => r.q2text||"").filter(r => r.trim().length > 0);
+    }
+
+    function AreaCard({name,data,clientName,scoreView="current_vs_likelihood",rows=[]}) {
       const theme=useTheme();
       const t=useLang();
       const client=clientName||"this organisation";
       const sessions = getContributingSessions(name, SESSION_TO_SIX);
+      const [showAllQ3,setShowAllQ3]=useState(false);
+
       if (!data||data.count===0) return (
         <Card>
           <h3 style={{color:theme.primary,marginBottom:6,fontSize:16}}>{name}</h3>
@@ -1424,26 +1467,61 @@
           <SessionPills sessions={sessions}/>
         </Card>
       );
+
+      const q2TextResponses = scoreView==="current_and_next"
+        ? getQ2TextForArea(name, SESSION_TO_SIX, rows)
+        : [];
+
       return (
         <Card style={{borderLeft:`3px solid ${scoreColor(data.q1Avg,theme)}`}}>
           <h3 style={{color:theme.textBody,marginBottom:12,fontSize:16}}>{name}</h3>
-          <div style={{marginBottom:8}}>
-            <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:4}}>{t("q1Label")} <strong style={{color:"#fff"}}>{client}</strong> {t("q1LabelEnd")}</label>
+
+          {/* Q1 — always shown, always quantitative */}
+          <div style={{marginBottom:12}}>
+            <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:4}}>
+              How is <strong style={{color:theme.textBody}}>{client}</strong> currently conducting this?
+            </label>
             <ScoreBar value={data.q1Avg} color={scoreColor(data.q1Avg,theme)}/>
           </div>
-          <div>
-            <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:4}}>{t("q2Label")}</label>
-            <ScoreBar value={data.q2Avg} color={scoreColor(data.q2Avg,theme)}/>
-          </div>
+
+          {/* Q2 — quantitative likelihood */}
+          {scoreView==="current_vs_likelihood" && (
+            <div>
+              <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:4}}>
+                What is the likelihood of improving this?
+              </label>
+              <ScoreBar value={data.q2Avg} color={scoreColor(data.q2Avg,theme)}/>
+            </div>
+          )}
+
+          {/* Q2 text — qualitative next steps */}
+          {scoreView==="current_and_next" && q2TextResponses.length > 0 && (
+            <div style={{marginTop:4}}>
+              <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:8}}>
+                What needs to happen to improve this?
+              </label>
+              {(showAllQ3 ? q2TextResponses : q2TextResponses.slice(0,2)).map((r,i) => (
+                <div key={i} style={{background:theme.bgDeep,borderLeft:`3px solid ${theme.primary}`,borderRadius:"0 6px 6px 0",padding:"8px 12px",marginBottom:6,color:theme.textSub,fontSize:13,lineHeight:1.5,fontStyle:"italic"}}>
+                  "{r}"
+                </div>
+              ))}
+              {q2TextResponses.length > 2 && (
+                <button onClick={()=>setShowAllQ3(v=>!v)} style={{background:"none",border:"none",color:theme.textMuted,fontSize:12,cursor:"pointer",padding:0,marginTop:2}}>
+                  {showAllQ3 ? "▲ Show less" : `▼ Show all ${q2TextResponses.length}`}
+                </button>
+              )}
+            </div>
+          )}
+
           <SessionPills sessions={sessions}/>
         </Card>
       );
     }
 
-    function SixAreasView({scores,clientName}) {
+    function SixAreasView({scores,clientName,scoreView="current_vs_likelihood",rows=[]}) {
       return (
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          {SIX_AREAS.map(area=><AreaCard key={area} name={area} data={scores[area]} clientName={clientName}/>)}
+          {SIX_AREAS.map(area=><AreaCard key={area} name={area} data={scores[area]} clientName={clientName} scoreView={scoreView} rows={rows}/>)}
         </div>
       );
     }
@@ -1457,13 +1535,14 @@
       };
     }
 
-    function WheelView({scores}) {
+    function WheelView({scores,scoreView="current_vs_likelihood",rows=[]}) {
       const theme=useTheme();
       const t=useLang();
 
       const Ring=({areas,label})=>{
         const avg=groupAvg(areas,scores);
-        const groupColor=scoreColor(avg.q1,theme);
+        const groupVal = scoreView==="current_vs_likelihood" ? avg.q1 : avg.q1; // q1 drives border in both views
+        const groupColor=scoreColor(groupVal,theme);
         return (
           <div style={{marginBottom:28}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,padding:"12px 16px",background:theme.bgDeep,borderRadius:10,border:`1px solid ${groupColor}`}}>
@@ -1473,15 +1552,17 @@
               </div>
               <div style={{display:"flex",gap:24,alignItems:"center"}}>
                 <div style={{textAlign:"center"}}>
-                  <div style={{color:theme.textMuted,fontSize:11,marginBottom:2}}>{t("currentPosition")}</div>
-                  <div style={{color:groupColor,fontWeight:800,fontSize:28,lineHeight:1}}>{avg.q1!==null?avg.q1.toFixed(1):"—"}</div>
-                  <div style={{color:theme.textMuted,fontSize:10}}>{t("outOf10")}</div>
-                </div>
-                <div style={{textAlign:"center"}}>
-                  <div style={{color:theme.textMuted,fontSize:11,marginBottom:2}}>{t("improvementEase")}</div>
-                  <div style={{color:scoreColor(avg.q2,theme),fontWeight:800,fontSize:28,lineHeight:1}}>{avg.q2!==null?avg.q2.toFixed(1):"—"}</div>
-                  <div style={{color:theme.textMuted,fontSize:10}}>{t("outOf10")}</div>
-                </div>
+                    <div style={{color:theme.textMuted,fontSize:11,marginBottom:2}}>Current position</div>
+                    <div style={{color:scoreColor(avg.q1,theme),fontWeight:800,fontSize:28,lineHeight:1}}>{avg.q1!==null?avg.q1.toFixed(1):"—"}</div>
+                    <div style={{color:theme.textMuted,fontSize:10}}>{t("outOf10")}</div>
+                  </div>
+                {scoreView==="current_vs_likelihood" && (
+                  <div style={{textAlign:"center"}}>
+                    <div style={{color:theme.textMuted,fontSize:11,marginBottom:2}}>Likelihood of improving</div>
+                    <div style={{color:scoreColor(avg.q2,theme),fontWeight:800,fontSize:28,lineHeight:1}}>{avg.q2!==null?avg.q2.toFixed(1):"—"}</div>
+                    <div style={{color:theme.textMuted,fontSize:10}}>{t("outOf10")}</div>
+                  </div>
+                )}
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:`repeat(${areas.length},1fr)`,gap:10}}>
@@ -1491,8 +1572,27 @@
                 return (
                   <div key={area} style={{background:theme.bgCard,border:`2px solid ${scoreColor(q1,theme)}`,borderRadius:12,padding:"16px 20px"}}>
                     <div style={{color:theme.textBody,fontWeight:700,fontSize:14,marginBottom:10}}>{area}</div>
-                    <div style={{marginBottom:6}}><span style={{color:theme.textSub,fontSize:11}}>{t("currentPosition")}</span><ScoreBar value={q1} color={scoreColor(q1,theme)}/></div>
-                    <div><span style={{color:theme.textSub,fontSize:11}}>{t("improvementEase")}</span><ScoreBar value={q2} color={scoreColor(q2,theme)}/></div>
+                    <div style={{marginBottom:scoreView==="current_vs_likelihood"?6:10}}>
+                      <span style={{color:theme.textSub,fontSize:11}}>Current position</span>
+                      <ScoreBar value={q1} color={scoreColor(q1,theme)}/>
+                    </div>
+                    {scoreView==="current_vs_likelihood" && (
+                      <div>
+                        <span style={{color:theme.textSub,fontSize:11}}>Likelihood of improving</span>
+                        <ScoreBar value={q2} color={scoreColor(q2,theme)}/>
+                      </div>
+                    )}
+                    {scoreView==="current_and_next" && (() => {
+                      const q3s = getQ2TextForArea(area, SESSION_TO_COMP, rows).slice(0,2);
+                      return q3s.length > 0 ? (
+                        <div style={{marginTop:4}}>
+                          <span style={{color:theme.textSub,fontSize:11,display:"block",marginBottom:6}}>What needs to happen</span>
+                          {q3s.map((r,i) => (
+                            <div key={i} style={{background:theme.bgDeep,borderLeft:`2px solid ${theme.primary}`,borderRadius:"0 4px 4px 0",padding:"6px 10px",marginBottom:4,color:theme.textSub,fontSize:12,lineHeight:1.4,fontStyle:"italic"}}>"{r}"</div>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
                     <SessionPills sessions={sessions}/>
                   </div>
                 );
@@ -1831,6 +1931,7 @@
       const [activeSection, setActiveSection] = useState("scores");
       const [activeTab, setActiveTab] = useState("six");
       const [activeDay, setActiveDay] = useState("all");
+      const [scoreView, setScoreView] = useState("current_vs_likelihood");
 
       const days = Object.keys(dayMap || {});
       const hasDays = days.length > 0 && Object.values(dayMap || {}).some(d => d.length > 0);
@@ -1879,16 +1980,32 @@
                 ]} active={activeTab} onChange={setActiveTab} pill/>
               </div>
               <ScoreLegend/>
+
+              {/* Score view toggle */}
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:20}}>
+                {SCORE_VIEWS.map(v=>(
+                  <button key={v.id} onClick={()=>setScoreView(v.id)} style={{
+                    padding:"6px 14px",borderRadius:20,border:`1px solid ${scoreView===v.id?theme.primary:theme.border}`,
+                    background:scoreView===v.id?`${theme.primary}22`:"transparent",
+                    color:scoreView===v.id?theme.primary:theme.textSub,
+                    cursor:"pointer",fontSize:13,fontWeight:scoreView===v.id?700:400,
+                    transition:"all 0.15s",
+                  }}>
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+
               {activeTab==="six" && (
                 <>
                   <p style={{color:theme.textSub,fontSize:13,marginBottom:16}}>{t("scoresDesc6")}</p>
-                  <SixAreasView scores={sixScores} clientName={clientName}/>
+                  <SixAreasView scores={sixScores} clientName={clientName} scoreView={scoreView} rows={filteredRows}/>
                 </>
               )}
               {activeTab==="wheel" && (
                 <>
                   <p style={{color:theme.textSub,fontSize:13,marginBottom:16}}>{t("scoresDescWheel")}</p>
-                  <WheelView scores={compScores}/>
+                  <WheelView scores={compScores} scoreView={scoreView} rows={filteredRows}/>
                 </>
               )}
             </>
@@ -2035,74 +2152,7 @@
       );
     }
 
-    // ─── QR Code modal ────────────────────────────────────────────────────────
 
-    const FORM_BASE_URL = "https://alex-taylor-kraken.github.io/Leadership-Manifesto/form.html";
-
-    function buildFormUrl(client, cohort, month, year) {
-      const p = new URLSearchParams();
-      if (client) p.set("client", client);
-      if (cohort) p.set("cohort", cohort);
-      if (month)  p.set("month",  month);
-      if (year)   p.set("year",   year);
-      return `${FORM_BASE_URL}?${p.toString()}`;
-    }
-
-    function QRModal({cohort, onClose}) {
-      const theme = useTheme();
-      const qrRef = useRef(null);
-      const url = buildFormUrl(cohort.client, cohort.cohort, cohort.month, cohort.year);
-
-      useEffect(() => {
-        if (!qrRef.current) return;
-        qrRef.current.innerHTML = "";
-        new QRCode(qrRef.current, {
-          text: url,
-          width: 240,
-          height: 240,
-          colorDark: "#29172E",
-          colorLight: "#F5ECE2",
-          correctLevel: QRCode.CorrectLevel.H,
-        });
-      }, [url]);
-
-      return (
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={onClose}>
-          <div style={{background:theme.bgCard,border:`1px solid ${theme.border}`,borderRadius:20,padding:32,maxWidth:380,width:"100%",textAlign:"center"}} onClick={e=>e.stopPropagation()}>
-            <h2 style={{color:theme.textBody,fontSize:18,fontWeight:800,marginBottom:4}}>{cohort.client}</h2>
-            <p style={{color:theme.textMuted,fontSize:13,marginBottom:20}}>{cohort.cohort} · {cohort.month} {cohort.year}</p>
-
-            {/* QR code */}
-            <div style={{display:"inline-block",background:"#F5ECE2",borderRadius:12,padding:12,marginBottom:16}}>
-              <div ref={qrRef}/>
-            </div>
-
-            <p style={{color:theme.textMuted,fontSize:12,marginBottom:20,lineHeight:1.6}}>
-              Participants scan this to open their response form. The client, cohort, month and year are pre-filled automatically.
-            </p>
-
-            {/* Copyable URL */}
-            <div style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,borderRadius:8,padding:"8px 12px",marginBottom:20,textAlign:"left"}}>
-              <p style={{color:theme.textMuted,fontSize:10,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Form URL</p>
-              <p style={{color:theme.textSub,fontSize:11,wordBreak:"break-all",lineHeight:1.5}}>{url}</p>
-            </div>
-
-            <div style={{display:"flex",gap:10}}>
-              <button
-                onClick={()=>{navigator.clipboard.writeText(url);}}
-                style={{flex:1,padding:"10px",background:theme.bgDeep,border:`1px solid ${theme.border}`,color:theme.textSub,borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:600}}>
-                Copy link
-              </button>
-              <button
-                onClick={onClose}
-                style={{flex:1,padding:"10px",background:`linear-gradient(135deg,${theme.primary},${theme.primaryDark})`,border:"none",color:"#fff",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:700}}>
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
 
     // ─── Cohort Manager ───────────────────────────────────────────────────────
 
@@ -2115,7 +2165,6 @@
       const [addError,setAddError]=useState("");
       const [activeCohortId,setActiveCohortId]=useState(null);
       const [compareMode,setCompareMode]=useState(false);
-      const [qrCohort,setQrCohort]=useState(null);
       const [editingId,setEditingId]=useState(null);
 
       const handleCSV=(file)=>{
@@ -2246,8 +2295,7 @@
                     )}
                     {editingId!==c.id&&(
                       <div style={{display:"flex",flexDirection:"column",borderLeft:"none"}}>
-                        <button onClick={()=>setQrCohort(c)} title="Show QR code" style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,borderLeft:"none",borderBottom:"none",color:theme.primary,padding:"4px 8px",cursor:"pointer",fontSize:11,borderRadius:"0 6px 0 0"}}>⬡</button>
-                        <button onClick={()=>setEditingId(c.id)} title="Edit labels" style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,borderLeft:"none",borderBottom:"none",color:theme.textMuted,padding:"4px 8px",cursor:"pointer",fontSize:11,borderRadius:"0"}}>✎</button>
+                        <button onClick={()=>setEditingId(c.id)} title="Edit labels" style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,borderLeft:"none",borderBottom:"none",color:theme.textMuted,padding:"4px 8px",cursor:"pointer",fontSize:11,borderRadius:"0 6px 0 0"}}>✎</button>
                         <button onClick={()=>removeCohort(c.id)} title="Remove" style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,borderLeft:"none",color:"#ff4d6d",padding:"4px 8px",cursor:"pointer",fontSize:11,borderRadius:"0 0 6px 0"}}>✕</button>
                       </div>
                     )}
@@ -2290,7 +2338,6 @@
               {compareMode&&<AnalysisView rows={allRows} clientName={cohorts.map(c=>c.client).filter((v,i,a)=>a.indexOf(v)===i).join(" & ")} dayMap={dayMap}/>}
             </>
           )}
-          {qrCohort&&<QRModal cohort={qrCohort} onClose={()=>setQrCohort(null)}/>}
         </div>
       );
     }
@@ -2670,205 +2717,6 @@
       html2pdf().set(opt).from(el).save();
     }
 
-    // ─── Google Sheets integration ────────────────────────────────────────────
-    // Paste your deployed Apps Script URL here after deploying the .gs file.
-    // Leave blank until the script is deployed — the form will show a setup notice.
-    const SHEET_SCRIPT_URL = "https://script.google.com/a/macros/kraken.tech/s/AKfycby_d_YoqGR6i5O5fUQ8K5Pm45sLp8l81PzmBP0E9JqB27mrgeffnI8huMLSMuOE5etx_Q/exec";
-    const SHEET_SECRET = "kraken-leadership-2024";
-
-    // Known session titles for the dropdown
-    const SESSION_TITLES = [
-      "A Brief History of Kraken Human Design",
-      "The Emotional Landscape of Transformation",
-      "Power Dynamics (Ego/Drama Triangle)",
-      "Navigating Complexity (Turning Points)",
-      "Psychological Safety",
-      "Empowering Others (VMOST/Multipliers)",
-      "Customer Centricity",
-      "Agile Leadership and Agile Governance",
-      "Risk Mindset",
-      "Problem Solving & Course Correcting",
-      "Narrative Leadership: Storytelling for a Change",
-      "Conscious Leadership",
-      "Rituals",
-    ];
-
-    // ─── Live Form (facilitator setup) ───────────────────────────────────────
-
-    const DEFAULT_Q1 = "Based on this session's content, where would you place [client] today?";
-    const DEFAULT_Q2 = "How easy do you think it will be to make meaningful progress in this area?";
-    const DEFAULT_Q3 = "Write one leadership principle for [client] — something the organisation should see from its leadership team coming out of this content block. Write it as a principle, not a problem.";
-
-    function LiveForm() {
-      const theme = useTheme();
-      const qrRef = useRef(null);
-
-      // Session setup
-      const [client, setClient] = useState("");
-      const [cohort, setCohort] = useState("");
-      const [month, setMonth] = useState("");
-      const [year, setYear] = useState("");
-
-      // Editable question text
-      const [q1Text, setQ1Text] = useState(DEFAULT_Q1);
-      const [q2Text, setQ2Text] = useState(DEFAULT_Q2);
-      const [q3Text, setQ3Text] = useState(DEFAULT_Q3);
-
-      const [qrGenerated, setQrGenerated] = useState(false);
-      const [copied, setCopied] = useState(false);
-
-      const labelStyle = {color:theme.textSub, fontSize:13, display:"block", marginBottom:6, fontWeight:600};
-      const inputBox = {width:"100%", marginTop:0};
-
-      // Build the participant URL encoding setup + question text (no session — participant selects that)
-      const buildUrl = () => {
-        const p = new URLSearchParams();
-        if (client) p.set("client", client);
-        if (cohort) p.set("cohort", cohort);
-        if (month)  p.set("month",  month);
-        if (year)   p.set("year",   year);
-        // Encode custom question text — replace [client] placeholder
-        const resolve = t => t.replace(/\[client\]/gi, client || "this organisation");
-        p.set("q1", resolve(q1Text));
-        p.set("q2", resolve(q2Text));
-        p.set("q3", resolve(q3Text));
-        return `${FORM_BASE_URL}?${p.toString()}`;
-      };
-
-      const generateQR = () => {
-        if (missing) return;
-        setQrGenerated(true); // triggers re-render, then useEffect draws the QR
-      };
-
-      // Draw the QR code once the ref div is in the DOM
-      useEffect(() => {
-        if (!qrGenerated || !qrRef.current) return;
-        qrRef.current.innerHTML = "";
-        new QRCode(qrRef.current, {
-          text: buildUrl(),
-          width: 260,
-          height: 260,
-          colorDark: "#29172E",
-          colorLight: "#F5ECE2",
-          correctLevel: QRCode.CorrectLevel.H,
-        });
-      }, [qrGenerated, client, cohort, month, year, q1Text, q2Text, q3Text]);
-
-      const copyLink = () => {
-        navigator.clipboard.writeText(buildUrl());
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      };
-
-      const missing = !client.trim() || !cohort.trim() || !month || !year;
-
-      return (
-        <div style={{maxWidth:720,margin:"0 auto"}}>
-          <p style={{color:theme.textMuted,fontSize:14,marginBottom:28,lineHeight:1.7}}>
-            Set up the session details and customise the questions below. When ready, generate a QR code — participants scan it and see only the questions you've written.
-          </p>
-
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,alignItems:"start"}}>
-
-            {/* Left column — setup */}
-            <div>
-              {/* Session details */}
-              <Card style={{marginBottom:16}}>
-                <p style={{color:theme.primary,fontWeight:700,fontSize:12,textTransform:"uppercase",letterSpacing:1,marginBottom:16}}>Session Details</p>
-                <div style={{marginBottom:12}}>
-                  <label style={labelStyle}>Client name</label>
-                  <input type="text" placeholder="e.g. TTE UK" value={client} onChange={e=>{setClient(e.target.value);setQrGenerated(false);}} style={inputBox}/>
-                </div>
-                <div style={{marginBottom:12}}>
-                  <label style={labelStyle}>Cohort</label>
-                  <input type="text" placeholder="e.g. Cohort A" value={cohort} onChange={e=>{setCohort(e.target.value);setQrGenerated(false);}} style={inputBox}/>
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                  <div>
-                    <label style={labelStyle}>Month</label>
-                    <select value={month} onChange={e=>{setMonth(e.target.value);setQrGenerated(false);}} style={inputBox}>
-                      <option value="">Month</option>
-                      {MONTHS.map(m=><option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Year</label>
-                    <select value={year} onChange={e=>{setYear(e.target.value);setQrGenerated(false);}} style={inputBox}>
-                      <option value="">Year</option>
-                      {YEARS.map(y=><option key={y} value={y}>{y}</option>)}
-                    </select>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Question editor */}
-              <Card>
-                <p style={{color:theme.primary,fontWeight:700,fontSize:12,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Customise Questions</p>
-                <p style={{color:theme.textMuted,fontSize:12,marginBottom:16}}>Use <strong style={{color:theme.primary}}>[client]</strong> as a placeholder — it auto-fills with the client name above.</p>
-                <div style={{marginBottom:14}}>
-                  <label style={labelStyle}>Q1</label>
-                  <textarea value={q1Text} onChange={e=>{setQ1Text(e.target.value);setQrGenerated(false);}} rows={2} style={{width:"100%",background:theme.bgDeep,border:`1px solid ${theme.border}`,color:theme.textBody,borderRadius:8,padding:"8px 10px",fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}}/>
-                </div>
-                <div style={{marginBottom:14}}>
-                  <label style={labelStyle}>Q2</label>
-                  <textarea value={q2Text} onChange={e=>{setQ2Text(e.target.value);setQrGenerated(false);}} rows={2} style={{width:"100%",background:theme.bgDeep,border:`1px solid ${theme.border}`,color:theme.textBody,borderRadius:8,padding:"8px 10px",fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}}/>
-                </div>
-                <div style={{marginBottom:8}}>
-                  <label style={labelStyle}>Q3</label>
-                  <textarea value={q3Text} onChange={e=>{setQ3Text(e.target.value);setQrGenerated(false);}} rows={3} style={{width:"100%",background:theme.bgDeep,border:`1px solid ${theme.border}`,color:theme.textBody,borderRadius:8,padding:"8px 10px",fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}}/>
-                </div>
-                <button onClick={()=>{setQ1Text(DEFAULT_Q1);setQ2Text(DEFAULT_Q2);setQ3Text(DEFAULT_Q3);setQrGenerated(false);}} style={{background:"none",border:"none",color:theme.textMuted,fontSize:12,cursor:"pointer",padding:0,textDecoration:"underline"}}>Reset to defaults</button>
-              </Card>
-            </div>
-
-            {/* Right column — QR */}
-            <div>
-              <Card style={{textAlign:"center",position:"sticky",top:20}}>
-                <p style={{color:theme.primary,fontWeight:700,fontSize:12,textTransform:"uppercase",letterSpacing:1,marginBottom:16}}>Participant QR Code</p>
-
-                {!qrGenerated ? (
-                  <div style={{padding:"32px 16px"}}>
-                    <div style={{fontSize:48,marginBottom:12}}>📱</div>
-                    <p style={{color:theme.textMuted,fontSize:13,marginBottom:20,lineHeight:1.6}}>
-                      {missing ? "Fill in all session details on the left to generate a QR code." : "Ready — click below to generate the participant QR code."}
-                    </p>
-                    <button
-                      onClick={generateQR}
-                      disabled={missing}
-                      style={{width:"100%",padding:"12px",background:missing?"transparent":`linear-gradient(135deg,${theme.primary},${theme.primaryDark})`,border:missing?`1px solid ${theme.border}`:"none",borderRadius:10,color:missing?theme.textMuted:"#fff",fontSize:14,fontWeight:700,cursor:missing?"not-allowed":"pointer",opacity:missing?0.5:1}}>
-                      Generate QR Code
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <div style={{display:"inline-block",background:"#F5ECE2",borderRadius:12,padding:12,marginBottom:16}}>
-                      <div ref={qrRef}/>
-                    </div>
-                    <p style={{color:theme.textMuted,fontSize:12,marginBottom:16,lineHeight:1.5}}>
-                      Participants scan this. They'll see the questions — nothing else.
-                    </p>
-                    <div style={{display:"flex",gap:8,marginBottom:12}}>
-                      <button onClick={copyLink} style={{flex:1,padding:"9px",background:theme.bgDeep,border:`1px solid ${theme.border}`,color:copied?theme.strong:theme.textSub,borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:600}}>
-                        {copied ? "✓ Copied!" : "Copy link"}
-                      </button>
-                      <button onClick={()=>setQrGenerated(false)} style={{flex:1,padding:"9px",background:theme.bgDeep,border:`1px solid ${theme.border}`,color:theme.textMuted,borderRadius:8,cursor:"pointer",fontSize:13}}>
-                        Regenerate
-                      </button>
-                    </div>
-                    <div style={{background:theme.bgDeep,borderRadius:8,padding:"8px 10px",textAlign:"left"}}>
-                      <p style={{color:theme.textMuted,fontSize:10,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Cohort</p>
-                      <p style={{color:theme.textSub,fontSize:12,fontWeight:600}}>{client} · {cohort}</p>
-                      <p style={{color:theme.textMuted,fontSize:11}}>{month} {year}</p>
-                    </div>
-                  </div>
-                )}
-              </Card>
-            </div>
-
-          </div>
-        </div>
-      );
-    }
 
     // ─── Password gate ────────────────────────────────────────────────────────
     // Change the value below to set your password.
@@ -2922,7 +2770,11 @@
 
     function App() {
       const [unlocked,setUnlocked]=useState(false);
+      const [mappingsLoaded,setMappingsLoaded]=useState(false);
       const [mainTab,setMainTab]=useState("single");
+
+      // Load mappings.json on mount
+      useEffect(() => { loadMappings(setMappingsLoaded); }, []);
       const [rows,setRows]=useState([]);
       const [fileName,setFileName]=useState("");
       const [error,setError]=useState("");
@@ -2982,7 +2834,6 @@
             <div style={{borderBottom:`1px solid ${theme.border}`,background:theme.navBg,padding:"0 32px"}}>
               <div style={{display:"flex",gap:0,maxWidth:960,margin:"0 auto"}}>
                 {[
-                  {id:"form",label:"📋 Live Form"},
                   {id:"single",label:tr("singleCsv")},
                   {id:"cohorts",label:`${tr("multipleCohorts")}${cohorts.length>0?` (${cohorts.length})`:""}`},
                   {id:"programme",label:`${tr("programmeSetup")}${Object.keys(dayMap).length>0?" ✓":""}`},
@@ -2995,7 +2846,6 @@
             </div>
 
             <div id="app-content" style={{maxWidth:960,margin:"0 auto",padding:"28px 24px"}}>
-              {mainTab==="form"&&<LiveForm/>}
               {mainTab==="single"&&<SingleUpload rows={rows} setRows={setRows} fileName={fileName} setFileName={setFileName} error={error} setError={setError} dayMap={dayMap}/>}
               {mainTab==="cohorts"&&<CohortManager cohorts={cohorts} setCohorts={setCohorts} dayMap={dayMap}/>}
               {mainTab==="programme"&&<ProgrammeSetup dayMap={dayMap} setDayMap={setDayMap}/>}
