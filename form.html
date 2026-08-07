@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Session Response</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Montserrat', 'Segoe UI', sans-serif;
+      background: #29172E;
+      color: #fff;
+      min-height: 100vh;
+      padding: 32px 16px 60px;
+    }
+    .container { max-width: 540px; margin: 0 auto; }
+
+    .header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .logo {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, #DE1C80, #C82C84);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      margin: 0 auto 12px;
+    }
+    .title { font-size: 13px; color: #c4a8cb; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+
+    .card {
+      background: #4A2E4F;
+      border: 1px solid #6b3f72;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    .q-number {
+      font-size: 11px;
+      font-weight: 800;
+      color: #DE1C80;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .q-text {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+    .score-display {
+      font-size: 40px;
+      font-weight: 800;
+      color: #DE1C80;
+      text-align: center;
+      margin-bottom: 8px;
+      line-height: 1;
+    }
+    input[type=range] {
+      width: 100%;
+      accent-color: #DE1C80;
+      cursor: pointer;
+      height: 6px;
+    }
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #c4a8cb;
+      margin-top: 8px;
+    }
+    textarea {
+      width: 100%;
+      background: #1e1126;
+      border: 1px solid #6b3f72;
+      color: #fff;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 100px;
+      outline: none;
+      line-height: 1.5;
+    }
+    textarea:focus { border-color: #DE1C80; }
+    .hint {
+      font-size: 12px;
+      color: #c4a8cb;
+      margin-top: -12px;
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+    select {
+      width: 100%;
+      background: #1e1126;
+      border: 1px solid #6b3f72;
+      color: #fff;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+      appearance: auto;
+    }
+    select:focus { border-color: #DE1C80; }
+    select option { background: #29172E; }
+    .submit-btn {
+      width: 100%;
+      padding: 18px;
+      background: linear-gradient(135deg, #DE1C80, #C82C84);
+      border: none;
+      border-radius: 14px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.2s;
+      letter-spacing: 0.5px;
+    }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .error { color: #ff4d6d; font-size: 13px; margin-top: 12px; text-align: center; }
+    .success-wrap {
+      text-align: center;
+      padding: 60px 24px;
+      display: none;
+    }
+    .success-wrap.show { display: block; }
+    .success-icon { font-size: 56px; margin-bottom: 16px; }
+    .success-title { font-size: 24px; font-weight: 800; color: #00d084; margin-bottom: 10px; }
+    .success-msg { font-size: 15px; color: #c4a8cb; line-height: 1.6; }
+    .form-body {}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">✦</div>
+      <div class="title">Session Response</div>
+    </div>
+
+    <div class="form-body" id="form-body">
+
+      <!-- Session selector -->
+      <div class="card">
+        <div class="q-number">Which session are you responding to?</div>
+        <select id="session">
+          <option value="">— Select your session —</option>
+          <option>A Brief History of Kraken Human Design</option>
+          <option>The Emotional Landscape of Transformation</option>
+          <option>Power Dynamics (Ego/Drama Triangle)</option>
+          <option>Navigating Complexity (Turning Points)</option>
+          <option>Psychological Safety</option>
+          <option>Empowering Others (VMOST/Multipliers)</option>
+          <option>Customer Centricity</option>
+          <option>Agile Leadership and Agile Governance</option>
+          <option>Risk Mindset</option>
+          <option>Problem Solving &amp; Course Correcting</option>
+          <option>Narrative Leadership: Storytelling for a Change</option>
+          <option>Conscious Leadership</option>
+          <option>Rituals</option>
+        </select>
+      </div>
+
+      <!-- Q1 -->
+      <div class="card">
+        <div class="q-number">Question 1</div>
+        <div class="q-text" id="q1-text">Loading…</div>
+        <div class="score-display" id="q1-val">5</div>
+        <input type="range" id="q1" min="1" max="10" value="5"
+          oninput="document.getElementById('q1-val').textContent=this.value"/>
+        <div class="slider-labels">
+          <span>1 — Early stages</span>
+          <span>10 — Exemplary</span>
+        </div>
+      </div>
+
+      <!-- Q2 -->
+      <div class="card">
+        <div class="q-number">Question 2</div>
+        <div class="q-text" id="q2-text">Loading…</div>
+        <div class="score-display" id="q2-val">5</div>
+        <input type="range" id="q2" min="1" max="10" value="5"
+          oninput="document.getElementById('q2-val').textContent=this.value"/>
+        <div class="slider-labels">
+          <span>1 — Very difficult</span>
+          <span>10 — Very easy</span>
+        </div>
+      </div>
+
+      <!-- Q3 -->
+      <div class="card">
+        <div class="q-number">Question 3</div>
+        <div class="q-text" id="q3-text">Loading…</div>
+        <p class="hint">Write it as a principle, not a problem — e.g. "Leadership that listens before it decides"</p>
+        <textarea id="q3" placeholder="Leadership that…"></textarea>
+      </div>
+
+      <p class="error" id="error-msg"></p>
+      <button class="submit-btn" id="submit-btn" onclick="submitForm()">Submit →</button>
+
+    </div>
+
+    <div class="success-wrap" id="success-wrap">
+      <div class="success-icon">✓</div>
+      <div class="success-title">Response saved!</div>
+      <div class="success-msg">Thank you — your response has been recorded.<br>You can close this page.</div>
+    </div>
+  </div>
+
+  <script>
+    const SHEET_SCRIPT_URL = "https://script.google.com/a/macros/kraken.tech/s/AKfycby_d_YoqGR6i5O5fUQ8K5Pm45sLp8l81PzmBP0E9JqB27mrgeffnI8huMLSMuOE5etx_Q/exec";
+    const SHEET_SECRET = "kraken-leadership-2024";
+
+    // Read everything from URL params
+    const params = new URLSearchParams(window.location.search);
+    const client = params.get("client") || "";
+    const cohort = params.get("cohort") || "";
+    const month  = params.get("month")  || "";
+    const year   = params.get("year")   || "";
+    const q1Text  = params.get("q1") || "Based on this session's content, where would you place this organisation today?";
+    const q2Text  = params.get("q2") || "How easy do you think it will be to make meaningful progress in this area?";
+    const q3Text  = params.get("q3") || "Write one leadership principle for this organisation.";
+
+    // Populate questions
+    document.getElementById("q1-text").textContent = q1Text;
+    document.getElementById("q2-text").textContent = q2Text;
+    document.getElementById("q3-text").textContent = q3Text;
+
+    async function submitForm() {
+      const sessionVal = document.getElementById("session").value;
+      const q3val = document.getElementById("q3").value.trim();
+      const errEl = document.getElementById("error-msg");
+      errEl.textContent = "";
+
+      if (!sessionVal) {
+        errEl.textContent = "Please select the session you are responding to.";
+        return;
+      }
+      if (!q3val) {
+        errEl.textContent = "Please write a response to Question 3 before submitting.";
+        return;
+      }
+
+      const btn = document.getElementById("submit-btn");
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+
+      try {
+        const res = await fetch(SHEET_SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            secret:  SHEET_SECRET,
+            client, cohort, month, year,
+            session: sessionVal,
+            q1: Number(document.getElementById("q1").value),
+            q2: Number(document.getElementById("q2").value),
+            q3: q3val,
+          })
+        });
+        const json = await res.json();
+        if (json.success) {
+          document.getElementById("form-body").style.display = "none";
+          document.getElementById("success-wrap").classList.add("show");
+        } else {
+          errEl.textContent = json.error || "Something went wrong. Please try again.";
+          btn.disabled = false;
+          btn.textContent = "Submit →";
+        }
+      } catch(e) {
+        errEl.textContent = "Could not connect. Please check your internet and try again.";
+        btn.disabled = false;
+        btn.textContent = "Submit →";
+      }
+    }
+  </script>
+</body>
+</html>
