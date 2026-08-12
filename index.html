@@ -1661,63 +1661,82 @@
     function describeCluster(texts) {
       if (texts.length === 0) return "";
 
-      // Score each response for how principle-like it is
-      const score = t => {
-        let s = t.trim().split(/\s+/).length * 0.5;
-        if (/^[A-Z]/.test(t)) s += 2;
-        if (!t.endsWith("?")) s += 1;
-        if (/\b(that|where|who|so that|in order|through|by)\b/i.test(t)) s += 3;
-        if (/\b(must|should|need to|commit|ensure|always|never|every|create|build|foster|enable)\b/i.test(t)) s += 2;
-        return s;
-      };
+      const stopWords = new Set(["the","and","for","with","that","this","from","have","will","when","what",
+        "your","they","them","into","also","more","just","some","like","been","well","make","take","give",
+        "show","help","work","team","lead","people","organisation","organization","a","an","to","of","is",
+        "are","be","in","on","at","as","by","or","it","we","our","not","can","all","but","so","do","has",
+        "was","who","how","their","which","about","would","could","should","where","there","these","those"]);
 
-      const sorted = [...texts].sort((a,b) => score(b) - score(a));
-      const anchor = sorted[0];
-      const rest = sorted.slice(1);
+      const actionVerbSet = new Set(["create","build","foster","enable","ensure","commit","listen","speak",
+        "trust","challenge","support","empower","develop","drive","encourage","establish","maintain",
+        "model","prioritise","prioritize","promote","reward","uphold","value","embrace","hold","lead",
+        "share","stand","protect","own","involve","communicate","recognise","recognize"]);
 
-      if (texts.length === 1) {
-        return `"${anchor.charAt(0).toUpperCase() + anchor.slice(1).replace(/\.?\s*$/,".")}"`;
-      }
-
-      // Extract the single clearest action from each remaining response.
-      // Strategy: find the first verb phrase — look for action verbs followed by their object.
-      // If the whole response is short enough (≤10 words), just use it directly as a quote fragment.
-      const actionVerbs = /\b(create|build|foster|enable|ensure|commit|hold|lead|listen|speak|trust|challenge|support|empower|develop|drive|embrace|encourage|establish|maintain|model|own|prioritise|prioritize|promote|protect|reward|share|show|stand|take|treat|uphold|value|welcome)\b/i;
-
-      const extractAction = t => {
-        t = t.trim().replace(/\.?\s*$/, "");
-        const words = t.split(/\s+/);
-        // Short response — use as-is (lowercase, no quotes — will be embedded in a list)
-        if (words.length <= 9) return t.charAt(0).toLowerCase() + t.slice(1);
-        // Longer — find the first action verb and take up to 8 words from there
-        const lower = t.toLowerCase();
-        const match = lower.match(actionVerbs);
-        if (match) {
-          const idx = lower.indexOf(match[0]);
-          // Find character position → word position
-          const before = t.substring(0, idx).split(/\s+/).filter(Boolean).length;
-          const slice = words.slice(before, before + 8).join(" ");
-          return slice.charAt(0).toLowerCase() + slice.slice(1).replace(/\.?\s*$/, "");
-        }
-        // Fallback — first 8 words
-        return words.slice(0,8).join(" ").replace(/\.?\s*$/,"").toLowerCase();
-      };
-
-      // Deduplicate actions and filter anything that closely echoes the anchor
-      const anchorLower = anchor.toLowerCase();
-      const actions = [];
-      rest.forEach(t => {
-        const a = extractAction(t);
-        // Require at least 3 words to avoid stub fragments
-        if (a && a.split(/\s+/).length >= 3 && !anchorLower.includes(a.substring(0,15))) {
-          actions.push(a);
-        }
+      const wordFreq = {};
+      const verbFreq = {};
+      texts.forEach(t => {
+        t.toLowerCase().replace(/[^a-z\s]/g,"").split(/\s+/).forEach(w => {
+          if (w.length > 3 && !stopWords.has(w)) {
+            wordFreq[w] = (wordFreq[w]||0) + 1;
+            if (actionVerbSet.has(w)) verbFreq[w] = (verbFreq[w]||0) + 1;
+          }
+        });
       });
 
-      const uniqueActions = [...new Set(actions)].slice(0, 4);
+      const topWords = Object.entries(wordFreq)
+        .filter(([w]) => !actionVerbSet.has(w))
+        .sort((a,b) => b[1]-a[1])
+        .slice(0,5)
+        .map(([w]) => w);
 
-      return `"${anchor.charAt(0).toUpperCase() + anchor.slice(1).replace(/\.?\s*$/,".")}"`;
+      const topVerbs = Object.entries(verbFreq)
+        .sort((a,b) => b[1]-a[1])
+        .slice(0,2)
+        .map(([w]) => w);
 
+      const n = texts.length;
+      const plural = n === 1 ? "response calls" : `${n} responses collectively call`;
+      const allWords = texts.join(" ").toLowerCase();
+
+      const extras = (exclude) => topWords.filter(w => !exclude.includes(w)).slice(0,2);
+
+      if (/\b(safe|safety|speak up|speak|voice|fear|psycholog)\b/.test(allWords)) {
+        const e = extras(["safe","safety","speak","voice","trust","fear","psycholog"]);
+        return `These ${plural} for an environment where people feel genuinely safe to speak up, be honest and raise difficult issues${e.length ? `, with particular attention to ${e.join(" and ")}` : ""}.`;
+      }
+      if (/\b(empower|own|ownership|autonomy|delegate|freedom)\b/.test(allWords)) {
+        const e = extras(["empower","own","ownership","autonomy","delegate","freedom"]);
+        return `These ${plural} for genuine empowerment — giving people real ownership, clear accountability and the freedom to act${e.length ? `, especially around ${e.join(" and ")}` : ""}.`;
+      }
+      if (/\b(vision|purpose|clear|direction|narrative|story|inspir)\b/.test(allWords)) {
+        const e = extras(["vision","purpose","clear","direction","narrative","story","inspir"]);
+        return `These ${plural} for a clearer, more compelling direction — a narrative${e.length ? ` rooted in ${e.join(" and ")}` : ""} that people can genuinely believe in and connect to.`;
+      }
+      if (/\b(accountab|consist|commit|deliver|follow|responsib)\b/.test(allWords)) {
+        const e = extras(["accountab","consist","commit","deliver","follow","responsib"]);
+        return `These ${plural} for greater accountability and consistency — leaders who follow through on what they say${e.length ? `, particularly around ${e.join(" and ")}` : ""}.`;
+      }
+      if (/\b(collaborat|together|cross|partner|collective|interdepend)\b/.test(allWords)) {
+        const e = extras(["collaborat","together","cross","partner","collective","interdepend"]);
+        return `These ${plural} for more deliberate collaboration — breaking silos and building shared ownership${e.length ? `, with focus on ${e.join(" and ")}` : ""}.`;
+      }
+      if (/\b(agil|adapt|learn|grow|experiment|change|flex)\b/.test(allWords)) {
+        const e = extras(["agil","adapt","learn","grow","experiment","change","flex"]);
+        return `These ${plural} for a more agile, learning-oriented culture${e.length ? ` — one that ${e.join(" and ")} continuously` : ""}.`;
+      }
+      if (/\b(wellbeing|well-being|care|compassion|support|thrive|sustain)\b/.test(allWords)) {
+        const e = extras(["wellbeing","well-being","care","compassion","support","thrive","sustain"]);
+        return `These ${plural} for leadership that genuinely prioritises the wellbeing of its people${e.length ? `, with emphasis on ${e.join(" and ")}` : ""}.`;
+      }
+      if (/\b(courage|bold|brave|difficult|challenge|decid|decision)\b/.test(allWords)) {
+        const e = extras(["courage","bold","brave","difficult","challenge","decid","decision"]);
+        return `These ${plural} for bolder, more decisive leadership — the courage to make difficult calls${e.length ? ` around ${e.join(" and ")}` : ""}.`;
+      }
+
+      // Generic fallback using extracted words and verbs
+      const topics = topWords.slice(0,3).join(", ");
+      const verbPhrase = topVerbs.length ? topVerbs.join(" and ") : "lead differently";
+      return `These ${plural} for leadership to ${verbPhrase}${topics ? ` — with a clear focus on ${topics}` : ""}.`;
     }
 
 
@@ -1819,29 +1838,60 @@
       );
     }
 
-    function SessionBreakdown({rows}) {
+    function SessionBreakdown({rows, clientName, scoreView="current_vs_likelihood"}) {
       const theme=useTheme();
       const t=useLang();
+      const client=clientName||"this organisation";
       const sessions={};
       rows.forEach(r=>{ if(!sessions[r.session]) sessions[r.session]=[]; sessions[r.session].push(r); });
       return (
-        <Card>
-          <h3 style={{color:theme.textBody,marginBottom:12}}>{t("responsesBySession")}</h3>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           {Object.entries(sessions).map(([session,sRows])=>{
-            const q1s=sRows.map(r=>r.q1).filter(Boolean),q2s=sRows.map(r=>r.q2).filter(Boolean);
+            const q1s=sRows.map(r=>r.q1).filter(Boolean);
+            const q2s=sRows.map(r=>r.q2).filter(Boolean);
+            const q2texts=sRows.map(r=>r.q2text||"").filter(r=>r.trim().length>0);
             const q1a=q1s.length?q1s.reduce((a,b)=>a+b,0)/q1s.length:null;
             const q2a=q2s.length?q2s.reduce((a,b)=>a+b,0)/q2s.length:null;
+            const [showMore,setShowMore]=useState(false);
             return (
-              <div key={session} style={{borderBottom:`1px solid ${theme.border}`,padding:"10px 0"}}>
-                <div style={{color:theme.textBody,fontWeight:600,marginBottom:6}}>{session}</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                  <div><span style={{color:theme.textSub,fontSize:11}}>{t("q1avg")} ({q1s.length})</span><ScoreBar value={q1a} color={scoreColor(q1a,theme)}/></div>
-                  <div><span style={{color:theme.textSub,fontSize:11}}>{t("q2avg")} ({q2s.length})</span><ScoreBar value={q2a} color={scoreColor(q2a,theme)}/></div>
+              <Card key={session} style={{borderLeft:`3px solid ${scoreColor(q1a,theme)}`}}>
+                <h3 style={{color:theme.textBody,marginBottom:12,fontSize:15}}>{session}</h3>
+                {/* Q1 — always shown */}
+                <div style={{marginBottom:12}}>
+                  <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:4}}>
+                    How is <strong style={{color:theme.textBody}}>{client}</strong> currently conducting this?
+                  </label>
+                  <ScoreBar value={q1a} color={scoreColor(q1a,theme)}/>
                 </div>
-              </div>
+                {/* Q2 quantitative */}
+                {scoreView==="current_vs_likelihood" && (
+                  <div>
+                    <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:4}}>
+                      What is the likelihood of improving this?
+                    </label>
+                    <ScoreBar value={q2a} color={scoreColor(q2a,theme)}/>
+                  </div>
+                )}
+                {/* Q2 qualitative */}
+                {scoreView==="current_and_next" && q2texts.length>0 && (
+                  <div>
+                    <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:8}}>
+                      What needs to happen to improve this?
+                    </label>
+                    {(showMore?q2texts:q2texts.slice(0,2)).map((r,i)=>(
+                      <div key={i} style={{background:theme.bgDeep,borderLeft:`3px solid ${theme.primary}`,borderRadius:"0 6px 6px 0",padding:"8px 12px",marginBottom:6,color:theme.textSub,fontSize:13,lineHeight:1.5,fontStyle:"italic"}}>"{r}"</div>
+                    ))}
+                    {q2texts.length>2&&(
+                      <button onClick={()=>setShowMore(v=>!v)} style={{background:"none",border:"none",color:theme.textMuted,fontSize:12,cursor:"pointer",padding:0}}>
+                        {showMore?`▲ Show less`:`▼ Show all ${q2texts.length}`}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </Card>
             );
           })}
-        </Card>
+        </div>
       );
     }
 
@@ -2011,7 +2061,7 @@
             </>
           )}
           {activeSection==="q3" && <Q3Panel rows={filteredRows}/>}
-          {activeSection==="sessions" && <SessionBreakdown rows={filteredRows}/>}
+          {activeSection==="sessions" && <SessionBreakdown rows={filteredRows} clientName={clientName} scoreView={scoreView}/>}
         </div>
       );
     }
@@ -2395,12 +2445,24 @@
       },
     ];
 
+    // Simplified slot definitions for the quick-assign panel
+    const QUICK_SLOTS = [
+      { key:"primary",    label:"Brand accent",       hint:"Buttons, active tabs, highlights" },
+      { key:"bgMain",     label:"Page background",    hint:"Main background colour" },
+      { key:"bgCard",     label:"Card background",    hint:"Cards and panels" },
+      { key:"textBody",   label:"Body text",          hint:"Main readable text" },
+      { key:"strong",     label:"Strong score",       hint:"7–10 on score bars" },
+      { key:"developing", label:"Developing score",   hint:"4–6 on score bars" },
+      { key:"secondary",  label:"Emerging score",     hint:"1–3 on score bars" },
+    ];
+
     function BrandingPanel({theme,onThemeChange,onClose}) {
       const [extracted,setExtracted]=useState([]);
       const [paletteImg,setPaletteImg]=useState(null);
       const [dragging,setDragging]=useState(false);
-      const [selectedRole,setSelectedRole]=useState("primary");
+      const [activeSlot,setActiveSlot]=useState("primary");
       const [openGroup,setOpenGroup]=useState(null);
+      const [mode,setMode]=useState("quick"); // "quick" | "advanced"
 
       // Auto-assign extracted colours to theme slots based on their visual properties
       const autoAssignTheme=(colours,currentTheme)=>{
@@ -2482,9 +2544,19 @@
         const img=new Image();
         img.onload=()=>{
           const colours=extractColours(img,12);
-          setExtracted(colours);
-          // Auto-apply theme based on extracted colours
-          const newTheme=autoAssignTheme(colours,theme);
+          // If the image has a white/near-white background, include it
+          const canvas=document.createElement("canvas"); canvas.width=4; canvas.height=4;
+          const ctx=canvas.getContext("2d"); ctx.drawImage(img,0,0,4,4);
+          const corners=[ctx.getImageData(0,0,1,1).data, ctx.getImageData(3,0,1,1).data,
+                         ctx.getImageData(0,3,1,1).data, ctx.getImageData(3,3,1,1).data];
+          const avgCorner=[0,1,2].map(c=>corners.reduce((s,px)=>s+px[c],0)/4);
+          const isWhiteBg = avgCorner.every(v=>v>220);
+          const finalColours = isWhiteBg ? ["#ffffff",...colours] : colours;
+          setExtracted(finalColours);
+          // Auto-apply
+          const newTheme=autoAssignTheme(finalColours,theme);
+          // If white bg detected, force bgMain to white
+          if(isWhiteBg) { newTheme.bgMain="#ffffff"; newTheme.bgDeep="#f5f5f5"; newTheme.bgCard="#ffffff"; }
           onThemeChange(newTheme);
         };
         img.src=url;
@@ -2517,14 +2589,6 @@
             <div style={{color:theme.textMuted,fontSize:11}}>{theme[k]}</div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            {extracted.length>0&&(
-              <button
-                onClick={()=>setSelectedRole(k)}
-                title="Apply extracted colour to this slot"
-                style={{background:selectedRole===k?theme.primary:theme.btnSecBg,border:`1px solid ${theme.border}`,color:selectedRole===k?theme.btnText:theme.textMuted,padding:"3px 8px",borderRadius:5,cursor:"pointer",fontSize:11}}>
-                {selectedRole===k?"→ applying":"apply"}
-              </button>
-            )}
             <input type="color" value={theme[k]}
               onChange={e=>applyColour(e.target.value,k)}
               style={{width:36,height:36,borderRadius:6,cursor:"pointer",padding:2,background:"none",border:`2px solid ${theme.border}`}}/>
@@ -2532,8 +2596,30 @@
         </div>
       );
 
+      // Mini swatch strip — rendered inline next to each quick slot
+      const SwatchStrip=({slotKey})=>(
+        <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>
+          {extracted.map((hex,i)=>{
+            const isActive=theme[slotKey]===hex;
+            return (
+              <div key={i} title={hex}
+                onClick={()=>applyColour(hex,slotKey)}
+                style={{
+                  width:28,height:28,borderRadius:6,background:hex,cursor:"pointer",
+                  border:isActive?`3px solid ${theme.textBody}`:`2px solid ${theme.border}`,
+                  boxShadow:isActive?"0 0 0 1px rgba(255,255,255,0.3)":"none",
+                  transition:"transform 0.1s, border 0.1s",flexShrink:0,
+                }}
+                onMouseEnter={e=>e.currentTarget.style.transform="scale(1.15)"}
+                onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}
+              />
+            );
+          })}
+        </div>
+      );
+
       return (
-        <div style={{position:"fixed",top:0,right:0,bottom:0,width:380,background:theme.bgCard,borderLeft:`1px solid ${theme.border}`,zIndex:1000,overflowY:"auto",padding:24,boxShadow:"-8px 0 32px rgba(0,0,0,0.6)"}}>
+        <div style={{position:"fixed",top:0,right:0,bottom:0,width:400,background:theme.bgCard,borderLeft:`1px solid ${theme.border}`,zIndex:1000,overflowY:"auto",padding:24,boxShadow:"-8px 0 32px rgba(0,0,0,0.6)"}}>
 
           {/* Header */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
@@ -2559,50 +2645,75 @@
             onDragOver={e=>{e.preventDefault();setDragging(true);}}
             onDragLeave={()=>setDragging(false)}
             onDrop={e=>{e.preventDefault();setDragging(false);handlePaletteFile(e.dataTransfer.files[0]);}}
-            style={{border:`2px dashed ${dragging?theme.primary:theme.border}`,borderRadius:12,padding:"16px",textAlign:"center",background:dragging?`${theme.primary}22`:theme.bgDeep,marginBottom:16,transition:"all 0.2s"}}>
+            style={{border:`2px dashed ${dragging?theme.primary:theme.border}`,borderRadius:12,padding:"14px",textAlign:"center",background:dragging?`${theme.primary}22`:theme.bgDeep,marginBottom:20,transition:"all 0.2s"}}>
             {paletteImg
-              ? <img src={paletteImg} alt="palette" style={{maxWidth:"100%",maxHeight:80,borderRadius:8,marginBottom:8,display:"block",margin:"0 auto 8px"}}/>
-              : <div style={{fontSize:28,marginBottom:6}}>🎨</div>
+              ? <img src={paletteImg} alt="palette" style={{maxWidth:"100%",maxHeight:60,borderRadius:6,marginBottom:6,display:"block",margin:"0 auto 6px"}}/>
+              : <div style={{fontSize:24,marginBottom:4}}>🎨</div>
             }
-            <p style={{color:theme.textMuted,fontSize:12,marginBottom:10}}>{paletteImg?"Replace palette — theme will update automatically":"Upload a brand colour palette — theme auto-applies instantly"}</p>
-            <label style={{background:theme.primary,color:theme.btnText,padding:"7px 16px",borderRadius:7,cursor:"pointer",fontWeight:600,fontSize:13}}>
+            <p style={{color:theme.textMuted,fontSize:12,marginBottom:8}}>{paletteImg?"Replace image — colours update automatically":"Upload a brand palette image"}</p>
+            <label style={{background:theme.primary,color:theme.btnText,padding:"6px 14px",borderRadius:7,cursor:"pointer",fontWeight:600,fontSize:13}}>
               Choose image<input type="file" accept="image/*" onChange={e=>handlePaletteFile(e.target.files[0])} style={{display:"none"}}/>
             </label>
           </div>
 
-          {/* Extracted swatches with role selector */}
-          {extracted.length>0&&(
-            <div style={{marginBottom:20}}>
-              <p style={{color:theme.textMuted,fontSize:11,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>
-                Extracted colours — select a slot above then click a swatch
-              </p>
-              <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
-                {extracted.map((hex,i)=>(
-                  <div key={i} title={hex}
-                    style={{width:40,height:40,borderRadius:8,background:hex,cursor:"pointer",
-                      border:Object.values(theme).includes(hex)?"3px solid #fff":"2px solid transparent",
-                      boxShadow:"0 2px 8px rgba(0,0,0,0.4)",transition:"transform 0.1s"}}
-                    onClick={()=>applyColour(hex,selectedRole)}
-                    onMouseEnter={e=>e.currentTarget.style.transform="scale(1.12)"}
-                    onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}
-                  />
-                ))}
-              </div>
-              <p style={{color:theme.textMuted,fontSize:11}}>
-                Applying to: <strong style={{color:theme.primary}}>{COLOUR_GROUPS.flatMap(g=>g.keys).find(k=>k.key===selectedRole)?.label||selectedRole}</strong>
-                {" — "}open a section below and click "apply" next to any colour slot to change which one.
-              </p>
+          {/* Mode toggle */}
+          <div style={{display:"flex",gap:4,background:theme.bgDeep,borderRadius:8,padding:3,marginBottom:20}}>
+            {[{id:"quick",label:"Quick assign"},{id:"advanced",label:"All colours"}].map(m=>(
+              <button key={m.id} onClick={()=>setMode(m.id)} style={{
+                flex:1,padding:"7px",borderRadius:6,border:"none",cursor:"pointer",fontWeight:600,fontSize:13,
+                background:mode===m.id?theme.bgCard:"transparent",
+                color:mode===m.id?theme.primary:theme.textMuted,transition:"all 0.2s",
+              }}>{m.label}</button>
+            ))}
+          </div>
+
+          {/* Quick assign — each slot with live swatch strip */}
+          {mode==="quick"&&(
+            <div>
+              {extracted.length===0&&(
+                <p style={{color:theme.textMuted,fontSize:13,textAlign:"center",padding:"20px 0"}}>
+                  Upload a palette image above to see colour swatches here.
+                </p>
+              )}
+              {QUICK_SLOTS.map(({key,label,hint})=>(
+                <div key={key} style={{marginBottom:16,paddingBottom:16,borderBottom:`1px solid ${theme.border}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                    <div>
+                      <div style={{color:theme.textBody,fontWeight:700,fontSize:15}}>{label}</div>
+                      <div style={{color:theme.textMuted,fontSize:12,marginTop:1}}>{hint}</div>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      {/* Current colour swatch + hex */}
+                      <span style={{color:theme.textMuted,fontSize:11}}>{theme[key]}</span>
+                      <div style={{width:22,height:22,borderRadius:4,background:theme[key],border:`1px solid ${theme.border}`}}/>
+                      {/* Manual picker */}
+                      <input type="color" value={theme[key]}
+                        onChange={e=>applyColour(e.target.value,key)}
+                        title="Pick manually"
+                        style={{width:22,height:22,borderRadius:4,cursor:"pointer",padding:0,background:"none",border:`1px solid ${theme.border}`}}/>
+                    </div>
+                  </div>
+                  {extracted.length>0&&<SwatchStrip slotKey={key}/>}
+                </div>
+              ))}
             </div>
           )}
 
-          {/* Full colour controls grouped by section */}
-          <div style={{marginBottom:20}}>
-            {COLOUR_GROUPS.map(({label,keys})=>(
-              <Section key={label} label={label}>
-                {keys.map(({key,label})=><ColourRow key={key} k={key} label={label}/>)}
-              </Section>
-            ))}
-          </div>
+          {/* Advanced — all colour groups */}
+          {mode==="advanced"&&(
+            <div style={{marginBottom:20}}>
+              {COLOUR_GROUPS.map(({label,keys})=>(
+                <Section key={label} label={label}>
+                  {keys.map(({key,label})=>(
+                    <div key={key}>
+                      <ColourRow k={key} label={label}/>
+                      {extracted.length>0&&<div style={{marginBottom:8}}><SwatchStrip slotKey={key}/></div>}
+                    </div>
+                  ))}
+                </Section>
+              ))}
+            </div>
+          )}
 
         </div>
       );
