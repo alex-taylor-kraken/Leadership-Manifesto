@@ -9,6 +9,7 @@
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1228,6 +1229,10 @@
     const LangContext = createContext("en");
     const useLang = () => { const code = useContext(LangContext); return (key) => T[code]?.[key] ?? T.en[key] ?? key; };
 
+    // PDF export override context — when exporting, AnalysisView uses these instead of its own state
+    const PdfNavContext = createContext({ section:null, tab:null, scoreView:null });
+    const usePdfNav = () => useContext(PdfNavContext);
+
     // ─── Colour utilities ─────────────────────────────────────────────────────
 
     function hexToRgb(hex) {
@@ -1978,10 +1983,16 @@
     function AnalysisView({rows, clientName, dayMap}) {
       const theme = useTheme();
       const t = useLang();
-      const [activeSection, setActiveSection] = useState("scores");
-      const [activeTab, setActiveTab] = useState("six");
+      const pdfNav = usePdfNav();
+      const [_activeSection, setActiveSection] = useState("scores");
+      const [_activeTab, setActiveTab] = useState("six");
       const [activeDay, setActiveDay] = useState("all");
-      const [scoreView, setScoreView] = useState("current_vs_likelihood");
+      const [_scoreView, setScoreView] = useState("current_vs_likelihood");
+
+      // When PDF export is running, use the overridden values
+      const activeSection = pdfNav.section || _activeSection;
+      const activeTab     = pdfNav.tab     || _activeTab;
+      const scoreView     = pdfNav.scoreView || _scoreView;
 
       const days = Object.keys(dayMap || {});
       const hasDays = days.length > 0 && Object.values(dayMap || {}).some(d => d.length > 0);
@@ -2814,18 +2825,99 @@
       html2pdf().set(opt).from(el).save();
     }
 
-    function downloadAllPdf(filename) {
-      const el = document.getElementById("app-content");
-      if (!el) return;
-      const opt = {
-        margin: [8, 8, 8, 8],
-        filename: filename,
-        image: { type: "jpeg", quality: 0.97 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#29172E" },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
-      };
-      html2pdf().set(opt).from(el).save();
+    async function downloadFullReport(filename, setExporting, setActiveSection, setActiveTab, setScoreView) {
+      setExporting(true);
+
+      const bg = getComputedStyle(document.body).backgroundColor || "#29172E";
+      const contentId = "app-content";
+
+      const sections = [
+        { section:"scores", tab:"six",   scoreView:"current_vs_likelihood",  label:"Oxford's 6 Transformation Skills — Current vs Likelihood" },
+        { section:"scores", tab:"six",   scoreView:"current_and_next",        label:"Oxford's 6 Transformation Skills — Current & Next Step" },
+        { section:"scores", tab:"wheel", scoreView:"current_vs_likelihood",   label:"Kraken's Transformation Model — Current vs Likelihood" },
+        { section:"scores", tab:"wheel", scoreView:"current_and_next",        label:"Kraken's Transformation Model — Current & Next Step" },
+        { section:"q3",     tab:"six",   scoreView:"current_vs_likelihood",   label:"Leadership Principles" },
+        { section:"sessions",tab:"six",  scoreView:"current_vs_likelihood",   label:"By Session" },
+      ];
+
+      try {
+        const canvases = [];
+
+        for (const s of sections) {
+          setActiveSection(s.section);
+          setActiveTab(s.tab);
+          setScoreView(s.scoreView);
+          // Wait for React to re-render
+          await new Promise(r => setTimeout(r, 800));
+          const el = document.getElementById(contentId);
+          if (!el) continue;
+          const canvas = await html2canvas(el, {
+            scale: 1.5,
+            useCORS: true,
+            backgroundColor: bg,
+            logging: false,
+            allowTaint: true,
+          });
+          canvases.push({ canvas, label: s.label });
+        }
+
+        if (canvases.length === 0) { setExporting(false); return; }
+
+        const A4_W = 210, A4_H = 297, margin = 10;
+
+        // Init a jsPDF doc via html2pdf internals
+        const tempDoc = await html2pdf()
+          .set({ jsPDF: { unit:"mm", format:"a4", orientation:"portrait" }, margin: [margin,margin,margin,margin] })
+          .from(document.createElement("div"))
+          .toPdf()
+          .get("pdf");
+
+        for (let i = 0; i < canvases.length; i++) {
+          const { canvas, label } = canvases[i];
+          if (i > 0) tempDoc.addPage();
+
+          // Label at top
+          tempDoc.setFontSize(8);
+          tempDoc.setTextColor(120, 100, 130);
+          tempDoc.text(label, margin, margin - 2);
+          tempDoc.setTextColor(0, 0, 0);
+
+          const cW = A4_W - margin * 2;
+          const cH = canvas.height * (cW / canvas.width);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.93);
+
+          if (cH <= A4_H - margin * 2) {
+            tempDoc.addImage(dataUrl, "JPEG", margin, margin, cW, cH);
+          } else {
+            // Slice across multiple pages
+            const pageH = A4_H - margin * 2;
+            const slicePx = Math.floor(pageH * (canvas.width / cW));
+            let yPx = 0;
+            let firstSlice = true;
+            while (yPx < canvas.height) {
+              if (!firstSlice) tempDoc.addPage();
+              firstSlice = false;
+              const sc = document.createElement("canvas");
+              sc.width = canvas.width;
+              sc.height = Math.min(slicePx, canvas.height - yPx);
+              const sctx = sc.getContext("2d");
+              sctx.drawImage(canvas, 0, -yPx);
+              const sUrl = sc.toDataURL("image/jpeg", 0.93);
+              const sH = sc.height * (cW / canvas.width);
+              tempDoc.addImage(sUrl, "JPEG", margin, margin, cW, sH);
+              yPx += slicePx;
+            }
+          }
+        }
+
+        tempDoc.save(filename);
+
+      } catch(e) {
+        console.error("PDF export failed:", e);
+        alert("PDF export failed: " + e.message);
+      }
+
+      setExporting(false);
     }
 
 
@@ -2883,6 +2975,11 @@
       const [unlocked,setUnlocked]=useState(false);
       const [mappingsLoaded,setMappingsLoaded]=useState(false);
       const [mainTab,setMainTab]=useState("single");
+      const [exporting,setExporting]=useState(false);
+      // PDF export nav state — overrides AnalysisView's internal state during export
+      const [pdfSection,setPdfSection]=useState(null);
+      const [pdfTab,setPdfTab]=useState(null);
+      const [pdfScoreView,setPdfScoreView]=useState(null);
 
       // Load mappings.json on mount
       useEffect(() => { loadMappings(setMappingsLoaded); }, []);
@@ -2911,6 +3008,7 @@
       const tr = (key) => T[lang]?.[key] ?? T.en[key] ?? key;
 
       return (
+        <PdfNavContext.Provider value={{section:pdfSection, tab:pdfTab, scoreView:pdfScoreView}}>
         <LangContext.Provider value={lang}>
         <ThemeContext.Provider value={theme}>
           <div style={{minHeight:"100vh",background:theme.bgMain,fontFamily:"'Montserrat','Segoe UI',system-ui,sans-serif",color:"#fff"}}>
@@ -2932,8 +3030,11 @@
                 <button onClick={()=>downloadPdf("app-content","kraken-leadership-current-view.pdf")} style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,color:theme.textSub,padding:"8px 12px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>
                   {tr("thisPage")}
                 </button>
-                <button onClick={()=>downloadAllPdf("kraken-leadership-full-report.pdf")} style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,color:theme.textSub,padding:"8px 12px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>
-                  {tr("fullReport")}
+                <button
+                  onClick={()=>downloadFullReport("kraken-leadership-full-report.pdf", setExporting, setPdfSection, setPdfTab, setPdfScoreView)}
+                  disabled={exporting}
+                  style={{background:exporting?theme.primary:theme.bgDeep,border:`1px solid ${theme.border}`,color:exporting?"#fff":theme.textSub,padding:"8px 12px",borderRadius:8,cursor:exporting?"not-allowed":"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap",opacity:exporting?0.8:1}}>
+                  {exporting ? "⏳ Building PDF…" : tr("fullReport")}
                 </button>
                 <button onClick={()=>setShowBranding(v=>!v)} style={{background:showBranding?theme.primary:theme.bgDeep,border:`1px solid ${theme.border}`,color:showBranding?"#fff":theme.textSub,padding:"8px 14px",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:600}}>
                   🎨 {tr("branding")}
@@ -2971,6 +3072,7 @@
           </div>
         </ThemeContext.Provider>
         </LangContext.Provider>
+        </PdfNavContext.Provider>
       );
     }
 
