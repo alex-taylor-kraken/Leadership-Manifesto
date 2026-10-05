@@ -147,8 +147,8 @@
         krakensModel: "Kraken's Transformation Model",
         scoresDesc6: "Scores mapped to Oxford's 6 transformation skills framework. Each session contributes to all areas it maps to.",
         scoresDescWheel: "Scores mapped to Kraken's Transformation Model. Inner ring represents core competencies.",
-        currentPosition: "Current position",
-        improvementEase: "Improvement ease",
+        currentPosition: "Existing capability",
+        improvementEase: "Likelihood of actually implementing this",
         overallGroupScore: "Overall group score",
         outOf10: "out of 10",
         noResponses: "No responses mapped to this area",
@@ -1230,7 +1230,7 @@
     const useLang = () => { const code = useContext(LangContext); return (key) => T[code]?.[key] ?? T.en[key] ?? key; };
 
     // PDF export override context — when exporting, AnalysisView uses these instead of its own state
-    const PdfNavContext = createContext({ section:null, tab:null, scoreView:null });
+    const PdfNavContext = createContext({ section:null, tab:null, scoreView:null, isExporting:false });
     const usePdfNav = () => useContext(PdfNavContext);
 
     // ─── Colour utilities ─────────────────────────────────────────────────────
@@ -1306,6 +1306,9 @@
       "narrative leadership: storytelling for a change":["Purposeful Vision","Adaptive Leadership","Radical Interdependence"],
       "conscious leadership":["Purposeful Vision","Adaptive Leadership"],
       "rituals":["Disciplined Freedom","Adaptive Leadership","Radical Interdependence"],
+      "radical candor":["Psychological Safety","Disciplined Freedom","Adaptive Leadership","Radical Interdependence"],
+      "how change really works":["Purposeful Vision","Psychological Safety","Disciplined Freedom","Adaptive Leadership"],
+      "conscious leadership - the foundations":["Purposeful Vision","Psychological Safety"],
     };
     const FALLBACK_SESSION_TO_COMP={
       "a brief history of kraken human design":[],
@@ -1321,6 +1324,9 @@
       "narrative leadership: storytelling for a change":["Storytelling"],
       "conscious leadership":["Mastery of Self","Rituals"],
       "rituals":["Rituals"],
+      "radical candor":["Psychological Safety","Mastery of Self"],
+      "how change really works":["Psychological Safety","Mastery of Self","Rituals","Storytelling"],
+      "conscious leadership - the foundations":["Psychological Safety","Mastery of Self","Empowerment"],
     };
 
     // Live values — start with fallbacks, overwritten once mappings.json loads
@@ -1484,7 +1490,7 @@
           {/* Q1 — always shown, always quantitative */}
           <div style={{marginBottom:12}}>
             <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:4}}>
-              How is <strong style={{color:theme.textBody}}>{client}</strong> currently conducting this?
+              Existing capability
             </label>
             <ScoreBar value={data.q1Avg} color={scoreColor(data.q1Avg,theme)}/>
           </div>
@@ -1493,7 +1499,7 @@
           {scoreView==="current_vs_likelihood" && (
             <div>
               <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:4}}>
-                What is the likelihood of improving this?
+                Likelihood of actually implementing this
               </label>
               <ScoreBar value={data.q2Avg} color={scoreColor(data.q2Avg,theme)}/>
             </div>
@@ -1557,13 +1563,13 @@
               </div>
               <div style={{display:"flex",gap:24,alignItems:"center"}}>
                 <div style={{textAlign:"center"}}>
-                    <div style={{color:theme.textMuted,fontSize:11,marginBottom:2}}>Current position</div>
+                    <div style={{color:theme.textMuted,fontSize:11,marginBottom:2}}>Existing capability</div>
                     <div style={{color:scoreColor(avg.q1,theme),fontWeight:800,fontSize:28,lineHeight:1}}>{avg.q1!==null?avg.q1.toFixed(1):"—"}</div>
                     <div style={{color:theme.textMuted,fontSize:10}}>{t("outOf10")}</div>
                   </div>
                 {scoreView==="current_vs_likelihood" && (
                   <div style={{textAlign:"center"}}>
-                    <div style={{color:theme.textMuted,fontSize:11,marginBottom:2}}>Likelihood of improving</div>
+                    <div style={{color:theme.textMuted,fontSize:11,marginBottom:2}}>Likelihood of actually implementing this</div>
                     <div style={{color:scoreColor(avg.q2,theme),fontWeight:800,fontSize:28,lineHeight:1}}>{avg.q2!==null?avg.q2.toFixed(1):"—"}</div>
                     <div style={{color:theme.textMuted,fontSize:10}}>{t("outOf10")}</div>
                   </div>
@@ -1578,12 +1584,12 @@
                   <div key={area} style={{background:theme.bgCard,border:`2px solid ${scoreColor(q1,theme)}`,borderRadius:12,padding:"16px 20px"}}>
                     <div style={{color:theme.textBody,fontWeight:700,fontSize:14,marginBottom:10}}>{area}</div>
                     <div style={{marginBottom:scoreView==="current_vs_likelihood"?6:10}}>
-                      <span style={{color:theme.textSub,fontSize:11}}>Current position</span>
+                      <span style={{color:theme.textSub,fontSize:11}}>Existing capability</span>
                       <ScoreBar value={q1} color={scoreColor(q1,theme)}/>
                     </div>
                     {scoreView==="current_vs_likelihood" && (
                       <div>
-                        <span style={{color:theme.textSub,fontSize:11}}>Likelihood of improving</span>
+                        <span style={{color:theme.textSub,fontSize:11}}>Likelihood of actually implementing this</span>
                         <ScoreBar value={q2} color={scoreColor(q2,theme)}/>
                       </div>
                     )}
@@ -1660,94 +1666,83 @@
       return clusters;
     }
 
-    // Build a 1–2 sentence description of a cluster from its actual responses.
-    // Strategy: extract the most distinctive noun phrases / verb phrases from the
-    // texts and weave them into a readable summary sentence.
-    function describeCluster(texts) {
+    // Build a description of a cluster from its actual responses.
+    // Written to ASD-STE100 principles: active voice, short sentences (≤20 words),
+    // specific subject + verb + object — no filler, no "call for" wrapping.
+    const THEME_DESCRIPTIONS = {
+      safe:         "Leaders should make it safe to speak up. People ought to be able to raise problems and be honest without fear.",
+      empower:      "Leaders ought to give people real ownership of their work. They can delegate authority and trust people to act.",
+      vision:       "Leaders should paint a clear picture of where the organisation is going. This will allow people to connect their work to a bigger purpose.",
+      accountab:    "Leaders must do what they say they will do. They can hold themselves and others to clear standards.",
+      collaborat:   "Leaders should create the conditions for people to work together. They can break down silos and build shared ownership of outcomes.",
+      agil:         "Leaders should be visible and consistent. They must model the behaviours they expect from others.",
+      wellbeing:    "Leaders should put people first. They ought to show genuine care for those they lead and create the conditions for people to thrive.",
+      courage:      "Leaders should communicate a clear direction. This will allow people to understand why the organisation exists and where it is going.",
+      inclus:       "Leaders should be present and consistent. They can demonstrate the behaviours and values they expect from others.",
+      innovat:      "Leaders should create space for new ideas to emerge. They can give people the freedom to test, learn and improve.",
+    };
+
+    // label-to-key map so the cluster's already-correct label drives the lookup
+    const LABEL_TO_KEY = {
+      "psychological safety & open communication": "safe",
+      "empowerment & autonomy":                    "empower",
+      "clarity of vision & purpose":               "vision",
+      "collaboration & teamwork":                  "collaborat",
+      "accountability & consistency":              "accountab",
+      "agility & adaptability":                    "agil",
+      "wellbeing & human-centred":                 "wellbeing",
+      "decision-making & courage":                 "courage",
+      "inclusive & visible leadership":            "inclus",
+      "innovation & learning culture":             "innovat",
+    };
+
+    function describeCluster(texts, label) {
       if (texts.length === 0) return "";
 
+      // Primary: look up by the cluster label (already correctly assigned)
+      if (label) {
+        const key = LABEL_TO_KEY[label.toLowerCase().trim()];
+        if (key && THEME_DESCRIPTIONS[key]) return THEME_DESCRIPTIONS[key];
+      }
+
+      // Fallback: keyword scan of the response text
+      const allWords = texts.join(" ").toLowerCase();
+      const matchers = [
+        { pattern: /\b(safe|safety|speak|voice|fear|psycholog|honest)\b/, key: "safe" },
+        { pattern: /\b(empower|own|ownership|autonomy|delegate|freedom)\b/, key: "empower" },
+        { pattern: /\b(vision|purpose|direction|narrative|story|inspir|clarity)\b/, key: "vision" },
+        { pattern: /\b(accountab|consist|commit|deliver|follow through|responsib)\b/, key: "accountab" },
+        { pattern: /\b(collaborat|together|cross|partner|collective|interdepend)\b/, key: "collaborat" },
+        { pattern: /\b(agil|adapt|learn|grow|experiment|change|flex|evolve)\b/, key: "agil" },
+        { pattern: /\b(wellbeing|well-being|care|compassion|support|thrive|sustain)\b/, key: "wellbeing" },
+        { pattern: /\b(courage|bold|brave|difficult|challenge|decid|decision)\b/, key: "courage" },
+        { pattern: /\b(inclus|diverse|visible|present|model|example)\b/, key: "inclus" },
+        { pattern: /\b(innovat|curious|creative|idea|test|improve|develop)\b/, key: "innovat" },
+      ];
+      for (const { pattern, key } of matchers) {
+        if (pattern.test(allWords)) return THEME_DESCRIPTIONS[key];
+      }
+
+      // Last resort: extract top words
       const stopWords = new Set(["the","and","for","with","that","this","from","have","will","when","what",
         "your","they","them","into","also","more","just","some","like","been","well","make","take","give",
         "show","help","work","team","lead","people","organisation","organization","a","an","to","of","is",
-        "are","be","in","on","at","as","by","or","it","we","our","not","can","all","but","so","do","has",
-        "was","who","how","their","which","about","would","could","should","where","there","these","those"]);
-
-      const actionVerbSet = new Set(["create","build","foster","enable","ensure","commit","listen","speak",
-        "trust","challenge","support","empower","develop","drive","encourage","establish","maintain",
-        "model","prioritise","prioritize","promote","reward","uphold","value","embrace","hold","lead",
-        "share","stand","protect","own","involve","communicate","recognise","recognize"]);
-
-      const wordFreq = {};
-      const verbFreq = {};
-      texts.forEach(t => {
-        t.toLowerCase().replace(/[^a-z\s]/g,"").split(/\s+/).forEach(w => {
-          if (w.length > 3 && !stopWords.has(w)) {
-            wordFreq[w] = (wordFreq[w]||0) + 1;
-            if (actionVerbSet.has(w)) verbFreq[w] = (verbFreq[w]||0) + 1;
-          }
-        });
+        "are","be","in","on","at","as","by","or","it","we","our","not","can","all","but","so","do","has"]);
+      const freq = {};
+      allWords.replace(/[^a-z\s]/g,"").split(/\s+/).forEach(w => {
+        if (w.length > 4 && !stopWords.has(w)) freq[w] = (freq[w]||0) + 1;
       });
-
-      const topWords = Object.entries(wordFreq)
-        .filter(([w]) => !actionVerbSet.has(w))
-        .sort((a,b) => b[1]-a[1])
-        .slice(0,5)
-        .map(([w]) => w);
-
-      const topVerbs = Object.entries(verbFreq)
-        .sort((a,b) => b[1]-a[1])
-        .slice(0,2)
-        .map(([w]) => w);
-
-      const n = texts.length;
-      const plural = n === 1 ? "response calls" : `${n} responses collectively call`;
-      const allWords = texts.join(" ").toLowerCase();
-
-      const extras = (exclude) => topWords.filter(w => !exclude.includes(w)).slice(0,2);
-
-      if (/\b(safe|safety|speak up|speak|voice|fear|psycholog)\b/.test(allWords)) {
-        const e = extras(["safe","safety","speak","voice","trust","fear","psycholog"]);
-        return `These ${plural} for an environment where people feel genuinely safe to speak up, be honest and raise difficult issues${e.length ? `, with particular attention to ${e.join(" and ")}` : ""}.`;
-      }
-      if (/\b(empower|own|ownership|autonomy|delegate|freedom)\b/.test(allWords)) {
-        const e = extras(["empower","own","ownership","autonomy","delegate","freedom"]);
-        return `These ${plural} for genuine empowerment — giving people real ownership, clear accountability and the freedom to act${e.length ? `, especially around ${e.join(" and ")}` : ""}.`;
-      }
-      if (/\b(vision|purpose|clear|direction|narrative|story|inspir)\b/.test(allWords)) {
-        const e = extras(["vision","purpose","clear","direction","narrative","story","inspir"]);
-        return `These ${plural} for a clearer, more compelling direction — a narrative${e.length ? ` rooted in ${e.join(" and ")}` : ""} that people can genuinely believe in and connect to.`;
-      }
-      if (/\b(accountab|consist|commit|deliver|follow|responsib)\b/.test(allWords)) {
-        const e = extras(["accountab","consist","commit","deliver","follow","responsib"]);
-        return `These ${plural} for greater accountability and consistency — leaders who follow through on what they say${e.length ? `, particularly around ${e.join(" and ")}` : ""}.`;
-      }
-      if (/\b(collaborat|together|cross|partner|collective|interdepend)\b/.test(allWords)) {
-        const e = extras(["collaborat","together","cross","partner","collective","interdepend"]);
-        return `These ${plural} for more deliberate collaboration — breaking silos and building shared ownership${e.length ? `, with focus on ${e.join(" and ")}` : ""}.`;
-      }
-      if (/\b(agil|adapt|learn|grow|experiment|change|flex)\b/.test(allWords)) {
-        const e = extras(["agil","adapt","learn","grow","experiment","change","flex"]);
-        return `These ${plural} for a more agile, learning-oriented culture${e.length ? ` — one that ${e.join(" and ")} continuously` : ""}.`;
-      }
-      if (/\b(wellbeing|well-being|care|compassion|support|thrive|sustain)\b/.test(allWords)) {
-        const e = extras(["wellbeing","well-being","care","compassion","support","thrive","sustain"]);
-        return `These ${plural} for leadership that genuinely prioritises the wellbeing of its people${e.length ? `, with emphasis on ${e.join(" and ")}` : ""}.`;
-      }
-      if (/\b(courage|bold|brave|difficult|challenge|decid|decision)\b/.test(allWords)) {
-        const e = extras(["courage","bold","brave","difficult","challenge","decid","decision"]);
-        return `These ${plural} for bolder, more decisive leadership — the courage to make difficult calls${e.length ? ` around ${e.join(" and ")}` : ""}.`;
-      }
-
-      // Generic fallback using extracted words and verbs
-      const topics = topWords.slice(0,3).join(", ");
-      const verbPhrase = topVerbs.length ? topVerbs.join(" and ") : "lead differently";
-      return `These ${plural} for leadership to ${verbPhrase}${topics ? ` — with a clear focus on ${topics}` : ""}.`;
+      const top = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([w])=>w);
+      return top.length
+        ? `Leaders should focus on ${top.join(" and ")}. This will be visible in how they act and what they prioritise.`
+        : "Leaders should be clear about what they expect. They ought to act consistently and communicate openly.";
     }
 
 
     function Q3Panel({rows}) {
       const theme=useTheme();
       const t=useLang();
+      const { isExporting } = usePdfNav();
       const [showAll,setShowAll]=useState(false);
       const [starred,setStarred]=useState(new Set());
       const responses=rows.map(r=>r.q3).filter(r=>r.trim().length>0);
@@ -1782,18 +1777,18 @@
                     <div style={{flex:1}}>
                       <div style={{color:theme.textBody,fontWeight:700,fontSize:15,marginBottom:2}}>{c.label}</div>
                     </div>
-                    <div style={{color:theme.developing,fontWeight:800,fontSize:20,flexShrink:0}}>{c.count}</div>
+                    {!isExporting && <div style={{color:theme.developing,fontWeight:800,fontSize:20,flexShrink:0}}>{c.count}</div>}
                   </div>
-                  <div style={{marginLeft:40,color:theme.textSub,fontSize:15,lineHeight:1.7,fontStyle:"italic"}}>
-                    {describeCluster(c.texts)}
+                  <div style={{marginLeft:40,color:theme.textBody,fontSize:15,lineHeight:1.7,fontStyle:"italic"}}>
+                    {describeCluster(c.texts, c.label)}
                   </div>
                 </div>
               ))
             }
           </Card>
 
-          {/* Most Powerful — user curated */}
-          <Card style={{borderColor:theme.primary,borderWidth:2,marginBottom:16}}>
+          {/* Most Powerful — user curated; hidden in PDF if nothing starred */}
+          {(!isExporting || starredList.length > 0) && <Card style={{borderColor:theme.primary,borderWidth:2,marginBottom:16}}>
             <div style={{marginBottom:12}}>
               <h3 style={{color:theme.primary,marginBottom:6}}>{t("mostPowerful")}</h3>
               <p style={{color:theme.textSub,fontSize:13,lineHeight:1.6}}>{t("mostPowerfulDesc")}</p>
@@ -1814,12 +1809,12 @@
                 ))}
               </div>
             )}
-          </Card>
+          </Card>}
 
           {/* All responses with star voting */}
           <Card>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setShowAll(v=>!v)}>
-              <h3 style={{color:theme.textBody}}>{t("allPrinciples")} ({responses.length})</h3>
+              <h3 style={{color:theme.textBody}}>{t("allPrinciples")}{!isExporting && ` (${responses.length})`}</h3>
               <span style={{color:theme.textMuted,fontSize:13}}>{showAll?t("hide"):t("showAll")}</span>
             </div>
             {showAll&&(
@@ -1832,7 +1827,7 @@
                       <button onClick={()=>toggleStar(r)} title={isStarred?"Remove from Most Powerful":"Add to Most Powerful"} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,flexShrink:0,padding:0,lineHeight:1,color:isStarred?theme.primary:theme.textMuted,transition:"color 0.2s"}}>
                         {isStarred?"★":"☆"}
                       </button>
-                      <span style={{color:isStarred?"#fff":"#ccc",fontSize:14,lineHeight:1.5,fontStyle:isStarred?"italic":"normal"}}>{i+1}. {r}</span>
+                      <span style={{color:theme.textBody,fontSize:14,lineHeight:1.5,fontStyle:isStarred?"italic":"normal"}}>{i+1}. {r}</span>
                     </div>
                   );
                 })}
@@ -1864,7 +1859,7 @@
                 {/* Q1 — always shown */}
                 <div style={{marginBottom:12}}>
                   <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:4}}>
-                    How is <strong style={{color:theme.textBody}}>{client}</strong> currently conducting this?
+                    Existing capability
                   </label>
                   <ScoreBar value={q1a} color={scoreColor(q1a,theme)}/>
                 </div>
@@ -1872,7 +1867,7 @@
                 {scoreView==="current_vs_likelihood" && (
                   <div>
                     <label style={{color:theme.textSub,fontSize:12,display:"block",marginBottom:4}}>
-                      What is the likelihood of improving this?
+                      Likelihood of actually implementing this
                     </label>
                     <ScoreBar value={q2a} color={scoreColor(q2a,theme)}/>
                   </div>
@@ -2005,7 +2000,7 @@
       const compScores = avgScores(filteredRows, COMPETENCIES, SESSION_TO_COMP);
 
       return (
-        <div>
+        <div id="pdf-analysis-content">
           <div style={{marginBottom:24}}>
             <TabBar tabs={[
               {id:"scores", label:t("scoresbyArea")},
@@ -2218,7 +2213,7 @@
     // ─── Cohort Manager ───────────────────────────────────────────────────────
 
     const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
-    const YEARS=Array.from({length:10},(_,i)=>(new Date().getFullYear()-5+i).toString());
+    const YEARS=Array.from({length:10},(_,i)=>(2026+i).toString());
 
     function CohortManager({cohorts,setCohorts,dayMap}) {
       const theme=useTheme();
@@ -2811,34 +2806,44 @@
 
     // ─── PDF export ───────────────────────────────────────────────────────────
 
-    function downloadPdf(elementId, filename) {
-      const el = document.getElementById(elementId);
+    function downloadPdf(filename, bgColor) {
+      const el = document.getElementById("pdf-analysis-content") || document.getElementById("app-content");
       if (!el) return;
-      const opt = {
-        margin: [8, 8, 8, 8],
-        filename: filename,
-        image: { type: "jpeg", quality: 0.97 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#29172E" },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
-      };
-      html2pdf().set(opt).from(el).save();
+      const bg = bgColor || "#29172E";
+      const A4_W = 210, A4_H = 297, margin = 10;
+      html2canvas(el, { scale: 2, useCORS: true, backgroundColor: bg, logging: false, allowTaint: true })
+        .then(canvas => {
+          html2pdf().set({
+            margin: [margin,margin,margin,margin],
+            filename: filename,
+            image: { type: "jpeg", quality: 0.97 },
+            html2canvas: { scale: 2, useCORS: true, backgroundColor: bg },
+            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+          }).from(el).save();
+        });
     }
 
-    async function downloadFullReport(filename, setExporting, setActiveSection, setActiveTab, setScoreView) {
+    // options: { model: "both"|"six"|"wheel", scoreView: "current_vs_likelihood"|"current_and_next" }
+    async function downloadFullReport(filename, setExporting, setActiveSection, setActiveTab, setScoreView, options) {
       setExporting(true);
 
-      const bg = getComputedStyle(document.body).backgroundColor || "#29172E";
-      const contentId = "app-content";
+      const bg = options.bgColor || "#29172E";
+      const captureId = "pdf-analysis-content";
+      const { model, scoreView } = options;
 
-      const sections = [
-        { section:"scores", tab:"six",   scoreView:"current_vs_likelihood",  label:"Oxford's 6 Transformation Skills — Current vs Likelihood" },
-        { section:"scores", tab:"six",   scoreView:"current_and_next",        label:"Oxford's 6 Transformation Skills — Current & Next Step" },
-        { section:"scores", tab:"wheel", scoreView:"current_vs_likelihood",   label:"Kraken's Transformation Model — Current vs Likelihood" },
-        { section:"scores", tab:"wheel", scoreView:"current_and_next",        label:"Kraken's Transformation Model — Current & Next Step" },
-        { section:"q3",     tab:"six",   scoreView:"current_vs_likelihood",   label:"Leadership Principles" },
-        { section:"sessions",tab:"six",  scoreView:"current_vs_likelihood",   label:"By Session" },
-      ];
+      // Build sections based on user choices
+      const scoreLabel = scoreView === "current_vs_likelihood" ? "Current vs Feeling to Change" : "Current & Next Step";
+      const scoreSuffix = " — " + scoreLabel;
+      const sections = [];
+
+      if (model === "six" || model === "both") {
+        sections.push({ section:"scores", tab:"six",   scoreView, label:"Oxford's 6 Transformation Skills" + scoreSuffix });
+      }
+      if (model === "wheel" || model === "both") {
+        sections.push({ section:"scores", tab:"wheel", scoreView, label:"Kraken's Transformation Model" + scoreSuffix });
+      }
+      sections.push({ section:"q3",      tab:"six",  scoreView:"current_vs_likelihood", label:"Leadership Principles" });
+      sections.push({ section:"sessions", tab:"six", scoreView:"current_vs_likelihood", label:"By Session" });
 
       try {
         const canvases = [];
@@ -2847,9 +2852,8 @@
           setActiveSection(s.section);
           setActiveTab(s.tab);
           setScoreView(s.scoreView);
-          // Wait for React to re-render
-          await new Promise(r => setTimeout(r, 800));
-          const el = document.getElementById(contentId);
+          await new Promise(r => setTimeout(r, 900));
+          const el = document.getElementById(captureId);
           if (!el) continue;
           const canvas = await html2canvas(el, {
             scale: 1.5,
@@ -2864,8 +2868,11 @@
         if (canvases.length === 0) { setExporting(false); return; }
 
         const A4_W = 210, A4_H = 297, margin = 10;
+        const pageW = A4_W - margin * 2;   // 190mm usable width
+        const pageH = A4_H - margin * 2;   // 277mm usable height (leave 10mm label row at top)
+        const labelH = 8; // mm reserved for section label
+        const contentH = pageH - labelH;   // height available for image
 
-        // Init a jsPDF doc via html2pdf internals
         const tempDoc = await html2pdf()
           .set({ jsPDF: { unit:"mm", format:"a4", orientation:"portrait" }, margin: [margin,margin,margin,margin] })
           .from(document.createElement("div"))
@@ -2876,38 +2883,27 @@
           const { canvas, label } = canvases[i];
           if (i > 0) tempDoc.addPage();
 
-          // Label at top
+          // Section label
           tempDoc.setFontSize(8);
-          tempDoc.setTextColor(120, 100, 130);
-          tempDoc.text(label, margin, margin - 2);
+          tempDoc.setTextColor(140, 110, 150);
+          tempDoc.text(label, margin, margin + labelH - 2);
           tempDoc.setTextColor(0, 0, 0);
 
-          const cW = A4_W - margin * 2;
-          const cH = canvas.height * (cW / canvas.width);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.93);
-
-          if (cH <= A4_H - margin * 2) {
-            tempDoc.addImage(dataUrl, "JPEG", margin, margin, cW, cH);
-          } else {
-            // Slice across multiple pages
-            const pageH = A4_H - margin * 2;
-            const slicePx = Math.floor(pageH * (canvas.width / cW));
-            let yPx = 0;
-            let firstSlice = true;
-            while (yPx < canvas.height) {
-              if (!firstSlice) tempDoc.addPage();
-              firstSlice = false;
-              const sc = document.createElement("canvas");
-              sc.width = canvas.width;
-              sc.height = Math.min(slicePx, canvas.height - yPx);
-              const sctx = sc.getContext("2d");
-              sctx.drawImage(canvas, 0, -yPx);
-              const sUrl = sc.toDataURL("image/jpeg", 0.93);
-              const sH = sc.height * (cW / canvas.width);
-              tempDoc.addImage(sUrl, "JPEG", margin, margin, cW, sH);
-              yPx += slicePx;
-            }
+          // Scale image to fit entirely on one page — never split
+          const naturalH = canvas.height * (pageW / canvas.width);
+          let imgW = pageW;
+          let imgH = naturalH;
+          if (imgH > contentH) {
+            const scale = contentH / imgH;
+            imgW = pageW * scale;
+            imgH = contentH;
           }
+          // Centre horizontally if scaled down
+          const xOff = margin + (pageW - imgW) / 2;
+          const yOff = margin + labelH;
+
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.93);
+          tempDoc.addImage(dataUrl, "JPEG", xOff, yOff, imgW, imgH);
         }
 
         tempDoc.save(filename);
@@ -2917,7 +2913,63 @@
         alert("PDF export failed: " + e.message);
       }
 
+      // Reset nav overrides so the app returns to normal state
+      setActiveSection(null);
+      setActiveTab(null);
+      setScoreView(null);
       setExporting(false);
+    }
+
+    // ─── PDF Options Modal ────────────────────────────────────────────────────
+    function PdfOptionsModal({ onConfirm, onCancel }) {
+      const theme = useTheme();
+      const [model, setModel] = useState("both");
+      const [scoreView, setScoreView] = useState("current_vs_likelihood");
+
+      const modelOptions = [
+        { id:"both",  label:"Both models" },
+        { id:"six",   label:"Oxford's 6 Transformation Skills only" },
+        { id:"wheel", label:"Kraken's Transformation Model only" },
+      ];
+      const scoreOptions = [
+        { id:"current_vs_likelihood", label:"Current vs feeling to change" },
+        { id:"current_and_next",      label:"Current & next step" },
+      ];
+
+      const btnBase = {padding:"9px 16px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,transition:"all 0.15s"};
+
+      return (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:10000,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{background:theme.bgCard,border:`1px solid ${theme.border}`,borderRadius:16,padding:28,maxWidth:420,width:"90%",boxShadow:"0 8px 40px rgba(0,0,0,0.5)"}}>
+            <h2 style={{fontSize:18,fontWeight:800,marginBottom:20,color:theme.textBody}}>Download Full Report</h2>
+
+            <p style={{fontSize:12,fontWeight:700,color:theme.textMuted,marginBottom:8,letterSpacing:1,textTransform:"uppercase"}}>Scores view</p>
+            <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>
+              {modelOptions.map(o=>(
+                <button key={o.id} onClick={()=>setModel(o.id)}
+                  style={{...btnBase, background:model===o.id?`${theme.primary}22`:"transparent", border:`1px solid ${model===o.id?theme.primary:theme.border}`, color:model===o.id?theme.primary:theme.textSub, textAlign:"left"}}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+
+            <p style={{fontSize:12,fontWeight:700,color:theme.textMuted,marginBottom:8,letterSpacing:1,textTransform:"uppercase"}}>Score type</p>
+            <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:24}}>
+              {scoreOptions.map(o=>(
+                <button key={o.id} onClick={()=>setScoreView(o.id)}
+                  style={{...btnBase, background:scoreView===o.id?`${theme.primary}22`:"transparent", border:`1px solid ${scoreView===o.id?theme.primary:theme.border}`, color:scoreView===o.id?theme.primary:theme.textSub, textAlign:"left"}}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+              <button onClick={onCancel} style={{...btnBase,background:"transparent",border:`1px solid ${theme.border}`,color:theme.textSub}}>Cancel</button>
+              <button onClick={()=>onConfirm({model,scoreView})} style={{...btnBase,background:`linear-gradient(135deg,${theme.primary},${theme.secondary})`,color:"#fff"}}>Download PDF</button>
+            </div>
+          </div>
+        </div>
+      );
     }
 
 
@@ -2976,6 +3028,7 @@
       const [mappingsLoaded,setMappingsLoaded]=useState(false);
       const [mainTab,setMainTab]=useState("single");
       const [exporting,setExporting]=useState(false);
+      const [showPdfModal,setShowPdfModal]=useState(false);
       // PDF export nav state — overrides AnalysisView's internal state during export
       const [pdfSection,setPdfSection]=useState(null);
       const [pdfTab,setPdfTab]=useState(null);
@@ -3008,10 +3061,10 @@
       const tr = (key) => T[lang]?.[key] ?? T.en[key] ?? key;
 
       return (
-        <PdfNavContext.Provider value={{section:pdfSection, tab:pdfTab, scoreView:pdfScoreView}}>
+        <PdfNavContext.Provider value={{section:pdfSection, tab:pdfTab, scoreView:pdfScoreView, isExporting:exporting}}>
         <LangContext.Provider value={lang}>
         <ThemeContext.Provider value={theme}>
-          <div style={{minHeight:"100vh",background:theme.bgMain,fontFamily:"'Montserrat','Segoe UI',system-ui,sans-serif",color:"#fff"}}>
+          <div style={{minHeight:"100vh",background:theme.bgMain,fontFamily:"'Montserrat','Segoe UI',system-ui,sans-serif",color:theme.textBody}}>
 
             {/* Header */}
             <div style={{background:`linear-gradient(135deg,${theme.bgCard},${darken(theme.bgMain,-10)})`,borderBottom:`1px solid ${theme.border}`,padding:"20px 32px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -3027,11 +3080,11 @@
                 <select value={lang} onChange={e=>setLang(e.target.value)} style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,color:theme.textSub,borderRadius:8,padding:"8px 12px",fontSize:13,cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>
                   {LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.label}</option>)}
                 </select>
-                <button onClick={()=>downloadPdf("app-content","kraken-leadership-current-view.pdf")} style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,color:theme.textSub,padding:"8px 12px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>
+                <button onClick={()=>downloadPdf("kraken-leadership-current-view.pdf", theme.bgMain)} style={{background:theme.bgDeep,border:`1px solid ${theme.border}`,color:theme.textSub,padding:"8px 12px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>
                   {tr("thisPage")}
                 </button>
                 <button
-                  onClick={()=>downloadFullReport("kraken-leadership-full-report.pdf", setExporting, setPdfSection, setPdfTab, setPdfScoreView)}
+                  onClick={()=>!exporting&&setShowPdfModal(true)}
                   disabled={exporting}
                   style={{background:exporting?theme.primary:theme.bgDeep,border:`1px solid ${theme.border}`,color:exporting?"#fff":theme.textSub,padding:"8px 12px",borderRadius:8,cursor:exporting?"not-allowed":"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap",opacity:exporting?0.8:1}}>
                   {exporting ? "⏳ Building PDF…" : tr("fullReport")}
@@ -3068,6 +3121,17 @@
                 <div onClick={()=>setShowBranding(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:999}}/>
                 <BrandingPanel theme={theme} onThemeChange={setTheme} onClose={()=>setShowBranding(false)}/>
               </>
+            )}
+
+            {showPdfModal&&(
+              <PdfOptionsModal
+                onCancel={()=>setShowPdfModal(false)}
+                onConfirm={(opts)=>{
+                  setShowPdfModal(false);
+                  downloadFullReport("kraken-leadership-full-report.pdf", setExporting, setPdfSection, setPdfTab, setPdfScoreView, {...opts, bgColor: theme.bgMain})
+                    .then(()=>{ setPdfSection(null); setPdfTab(null); setPdfScoreView(null); });
+                }}
+              />
             )}
           </div>
         </ThemeContext.Provider>
