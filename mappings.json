@@ -1,7 +1,6 @@
 {
   "_source": "Synced from Exec LDP Notion page — https://app.notion.com/p/kraken-tech/Exec-LDP-3a473c742c7181b08b1ed52081d30827",
-  "_lastSynced": "2026-08-07",
-
+  "_lastSynced": "2026-10-05",
   "sixAreas": [
     "Purposeful Vision",
     "Psychological Safety",
@@ -10,7 +9,6 @@
     "Adaptive Leadership",
     "Radical Interdependence"
   ],
-
   "competencies": [
     "Psychological Safety",
     "Mastery of Self",
@@ -21,36 +19,148 @@
     "Rituals",
     "Storytelling"
   ],
-
   "sessionToSix": {
-    "a brief history of kraken human design":               ["Purposeful Vision","Adaptive Leadership"],
-    "the emotional landscape of transformation":            ["Psychological Safety","Adaptive Leadership"],
-    "power dynamics (ego/drama triangle)":                  ["Psychological Safety","Disciplined Freedom","Adaptive Leadership"],
-    "navigating complexity (turning points)":               ["Purposeful Vision","Psychological Safety","Disciplined Freedom","Adaptive Leadership","Radical Interdependence"],
-    "psychological safety":                                 ["Psychological Safety","Disciplined Freedom","Adaptive Leadership","Radical Interdependence"],
-    "empowering others (vmost/multipliers)":                ["Disciplined Freedom","Adaptive Leadership","Radical Interdependence"],
-    "customer centricity":                                  ["Purposeful Vision","Purposeful Technology","Radical Interdependence"],
-    "agile leadership and agile governance":                ["Purposeful Technology","Disciplined Freedom","Adaptive Leadership","Radical Interdependence"],
-    "risk mindset":                                         ["Psychological Safety","Disciplined Freedom","Adaptive Leadership","Radical Interdependence"],
-    "problem solving & course correcting":                  ["Purposeful Technology","Adaptive Leadership"],
-    "narrative leadership: storytelling for a change":      ["Purposeful Vision","Adaptive Leadership","Radical Interdependence"],
-    "conscious leadership":                                 ["Purposeful Vision","Adaptive Leadership"],
-    "rituals":                                              ["Disciplined Freedom","Adaptive Leadership","Radical Interdependence"]
+    "a brief history of kraken human design": [
+      "Purposeful Vision",
+      "Adaptive Leadership"
+    ],
+    "the emotional landscape of transformation": [
+      "Psychological Safety",
+      "Adaptive Leadership"
+    ],
+    "power dynamics (ego/drama triangle)": [
+      "Psychological Safety",
+      "Disciplined Freedom",
+      "Adaptive Leadership"
+    ],
+    "navigating complexity (turning points)": [
+      "Purposeful Vision",
+      "Psychological Safety",
+      "Disciplined Freedom",
+      "Adaptive Leadership",
+      "Radical Interdependence"
+    ],
+    "psychological safety": [
+      "Psychological Safety",
+      "Disciplined Freedom",
+      "Adaptive Leadership",
+      "Radical Interdependence"
+    ],
+    "empowering others (vmost/multipliers)": [
+      "Disciplined Freedom",
+      "Adaptive Leadership",
+      "Radical Interdependence"
+    ],
+    "customer centricity": [
+      "Purposeful Vision",
+      "Purposeful Technology",
+      "Radical Interdependence"
+    ],
+    "agile leadership and agile governance": [
+      "Purposeful Technology",
+      "Disciplined Freedom",
+      "Adaptive Leadership",
+      "Radical Interdependence"
+    ],
+    "risk mindset": [
+      "Psychological Safety",
+      "Disciplined Freedom",
+      "Adaptive Leadership",
+      "Radical Interdependence"
+    ],
+    "problem solving & course correcting": [
+      "Purposeful Technology",
+      "Adaptive Leadership"
+    ],
+    "narrative leadership: storytelling for a change": [
+      "Purposeful Vision",
+      "Adaptive Leadership",
+      "Radical Interdependence"
+    ],
+    "conscious leadership": [
+      "Purposeful Vision",
+      "Adaptive Leadership"
+    ],
+    "rituals": [
+      "Disciplined Freedom",
+      "Adaptive Leadership",
+      "Radical Interdependence"
+    ],
+    "radical candor": [
+      "Psychological Safety",
+      "Disciplined Freedom",
+      "Adaptive Leadership",
+      "Radical Interdependence"
+    ],
+    "how change really works": [
+      "Purposeful Vision",
+      "Psychological Safety",
+      "Disciplined Freedom",
+      "Adaptive Leadership"
+    ],
+    "conscious leadership - the foundations": [
+      "Purposeful Vision",
+      "Psychological Safety"
+    ]
   },
-
   "sessionToComp": {
-    "a brief history of kraken human design":               [],
-    "the emotional landscape of transformation":            ["Psychological Safety","Mastery of Self"],
-    "power dynamics (ego/drama triangle)":                  ["Psychological Safety","Mastery of Self"],
-    "navigating complexity (turning points)":               ["Systems Thinking","Agility","Turning Points"],
-    "psychological safety":                                 ["Psychological Safety"],
-    "empowering others (vmost/multipliers)":                ["Empowerment"],
-    "customer centricity":                                  [],
-    "agile leadership and agile governance":                ["Empowerment","Systems Thinking","Agility"],
-    "risk mindset":                                         ["Systems Thinking","Agility"],
-    "problem solving & course correcting":                  ["Systems Thinking"],
-    "narrative leadership: storytelling for a change":      ["Storytelling"],
-    "conscious leadership":                                 ["Mastery of Self","Rituals"],
-    "rituals":                                              ["Rituals"]
+    "a brief history of kraken human design": [],
+    "the emotional landscape of transformation": [
+      "Psychological Safety",
+      "Mastery of Self"
+    ],
+    "power dynamics (ego/drama triangle)": [
+      "Psychological Safety",
+      "Mastery of Self"
+    ],
+    "navigating complexity (turning points)": [
+      "Systems Thinking",
+      "Agility",
+      "Turning Points"
+    ],
+    "psychological safety": [
+      "Psychological Safety"
+    ],
+    "empowering others (vmost/multipliers)": [
+      "Empowerment"
+    ],
+    "customer centricity": [],
+    "agile leadership and agile governance": [
+      "Empowerment",
+      "Systems Thinking",
+      "Agility"
+    ],
+    "risk mindset": [
+      "Systems Thinking",
+      "Agility"
+    ],
+    "problem solving & course correcting": [
+      "Systems Thinking"
+    ],
+    "narrative leadership: storytelling for a change": [
+      "Storytelling"
+    ],
+    "conscious leadership": [
+      "Mastery of Self",
+      "Rituals"
+    ],
+    "rituals": [
+      "Rituals"
+    ],
+    "radical candor": [
+      "Psychological Safety",
+      "Mastery of Self"
+    ],
+    "how change really works": [
+      "Psychological Safety",
+      "Mastery of Self",
+      "Rituals",
+      "Storytelling"
+    ],
+    "conscious leadership - the foundations": [
+      "Psychological Safety",
+      "Mastery of Self",
+      "Empowerment"
+    ]
   }
 }
