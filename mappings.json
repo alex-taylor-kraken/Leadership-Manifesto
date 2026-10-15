@@ -1,6 +1,6 @@
 {
   "_source": "Synced from Exec LDP Notion page — https://app.notion.com/p/kraken-tech/Exec-LDP-3a473c742c7181b08b1ed52081d30827",
-  "_lastSynced": "2026-10-05",
+  "_lastSynced": "2026-10-15",
   "sixAreas": [
     "Purposeful Vision",
     "Psychological Safety",
@@ -101,6 +101,16 @@
     "conscious leadership - the foundations": [
       "Purposeful Vision",
       "Psychological Safety"
+    ],
+    "ideation - a truly new, brilliant product": [
+      "Purposeful Vision",
+      "Psychological Safety",
+      "Disciplined Freedom",
+      "Radical Interdependence"
+    ],
+    "one team, one goal": [
+      "Disciplined Freedom",
+      "Radical Interdependence"
     ]
   },
   "sessionToComp": {
@@ -145,7 +155,8 @@
       "Rituals"
     ],
     "rituals": [
-      "Rituals"
+      "Rituals",
+      "Storytelling"
     ],
     "radical candor": [
       "Psychological Safety",
@@ -161,6 +172,8 @@
       "Psychological Safety",
       "Mastery of Self",
       "Empowerment"
-    ]
+    ],
+    "ideation - a truly new, brilliant product": [],
+    "one team, one goal": []
   }
 }
