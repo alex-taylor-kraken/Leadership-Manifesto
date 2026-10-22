@@ -1,6 +1,6 @@
 {
   "_source": "Synced from Exec LDP Notion page — https://app.notion.com/p/kraken-tech/Exec-LDP-3a473c742c7181b08b1ed52081d30827",
-  "_lastSynced": "2026-10-15",
+  "_lastSynced": "2026-10-22",
   "sixAreas": [
     "Purposeful Vision",
     "Psychological Safety",
@@ -111,6 +111,16 @@
     "one team, one goal": [
       "Disciplined Freedom",
       "Radical Interdependence"
+    ],
+    "data led sales and proposition development": [
+      "Purposeful Vision",
+      "Purposeful Technology",
+      "Disciplined Freedom"
+    ],
+    "systems thinking": [
+      "Disciplined Freedom",
+      "Adaptive Leadership",
+      "Radical Interdependence"
     ]
   },
   "sessionToComp": {
@@ -174,6 +184,11 @@
       "Empowerment"
     ],
     "ideation - a truly new, brilliant product": [],
-    "one team, one goal": []
+    "one team, one goal": [],
+    "data led sales and proposition development": [],
+    "systems thinking": [
+      "Systems Thinking",
+      "Agility"
+    ]
   }
 }
